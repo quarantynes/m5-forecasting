@@ -8,9 +8,10 @@ memory = Memory("./joblib_cache")
 Series = Type[pd.Series]
 DataFrame = Type[pd.DataFrame]
 
-SALES_TRAIN_VALIDATION = "~/projects/kaggle/m5-forecasting-accuracy/data/sales_train_validation.csv"
-CALENDAR = "~/projects/kaggle/m5-forecasting-accuracy/data/calendar.csv"
-SELL_PRICES = "~/projects/kaggle/m5-forecasting-accuracy/data/sell_prices.csv"
+
+SALES_TRAIN_VALIDATION = "data/sales_train_validation.csv"
+CALENDAR = "data/calendar.csv"
+SELL_PRICES = "data/sell_prices.csv"
 
 
 def open_items_sale_data():
