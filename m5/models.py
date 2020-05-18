@@ -1,6 +1,6 @@
 import tensorflow as tf
-from tensorflow_core.python.keras.api._v2.keras import layers
-
+#from tensorflow.python.keras.api._v2.keras import layers
+from tensorflow.keras import layers
 
 
 class ModelV1(tf.keras.models.Model):
