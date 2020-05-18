@@ -34,7 +34,7 @@ def write_output(H, dir="evaluation"):
     from m5.feature import item_id
     df.insert(0, "id", item_id())
     step = tf.summary.experimental.get_step()
-    df.to_csv(f"../data/{dir}/output_on_step{step}.csv", index=False)
+    df.to_csv(f"data/{dir}/output_on_step{step}.csv", index=False)
 
 
 # Training
@@ -99,4 +99,4 @@ with tf.summary.create_file_writer(logdir).as_default():
 # Save Model
 # TODO: save model here and implement prediction/submission
 X,Y,w = batch_generator(eval_data=True,batch_size=batch_size)
-model.save(f"../data/saved_models/{model.name}.tf")
+model.save(f"data/saved_models/{model.name}.tf")
