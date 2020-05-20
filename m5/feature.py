@@ -92,9 +92,11 @@ def unit_sales_per_item_over_time() -> ItemArray:
 @memory.cache
 def item_weight() -> ItemVector:
     """
-    The weights for each item are computed based on the difference of unit sales in the training data set.
-    This is used in the computation of RMSSE. It should not be confounded with the aggregation weights of WRMSSE.
-    This weight is introduced to make scale indifferent cost across the different time series.
+    The weights for each item are computed based on the difference of
+    unit sales in the training data set.  This is used in the
+    computation of RMSSE. It should not be confounded with the
+    aggregation weights of WRMSSE.  This weight is introduced to make
+    scale indifferent cost across the different time series.
     """
     s = unit_sales_per_item_over_time()
     s = s[:, 0:-28 * 1].astype(np.float32)
@@ -110,9 +112,11 @@ def item_weight() -> ItemVector:
 @memory.cache
 def series_weight(s) -> ItemVector:
     """
-    The weights for each series are computed based on the difference of unit sales in the training data set.
-    This is used in the computation of RMSSE. It should not be confounded with the aggregation weights of WRMSSE.
-    This weight is introduced to make scale indifferent cost across the different time series.
+    The weights for each series are computed based on the difference
+    of unit sales in the training data set.  This is used in the
+    computation of RMSSE. It should not be confused with the
+    aggregation weights of WRMSSE.  This weight is introduced to make
+    scale indifferent cost across the different time series.
     """
     s = s[:, 0:-28 * 1]
     # item_w = np.sqrt(
@@ -126,8 +130,9 @@ def series_weight(s) -> ItemVector:
 @memory.cache
 def sales_weight() -> ItemVector:
     """
-    These weights are the sum of dollar sales of the last 28 days in the training dataset.
-    They are used in the aggregation coefficients of WRMSSE.
+    These weights are the sum of dollar sales of the last 28 days in
+    the training dataset.  They are used in the aggregation
+    coefficients of WRMSSE.
     """
     s = unit_sales_per_item_over_time()
     p = prices_per_item_over_time()
@@ -169,9 +174,12 @@ NB_ITEMS, NB_DAYS = 30490, 1913
 
 
 def compose_aggregation_matrices(A: ItemVector, B: ItemVector) -> ItemVector:
-    """A and B are vectors of indices representing two different aggregations. If A has
-    m different indices and B has n different indices. The aggregation composition will have
-    m*n different indices. The length of A, B and output is the same."""
+    """
+    A and B are vectors of indices representing two different
+    aggregations. If A has m different indices and B has n different
+    indices, the aggregation composition will have m*n different
+    indices. The length of A, B and output is the same.
+    """
     output = np.zeros_like(A)
     nunique_A = len(np.unique(A))
     nunique_B = len(np.unique(B))
@@ -209,11 +217,29 @@ def get_aggregation_matrices():
 @memory.cache
 def unit_sales_aggregation() -> Dict[int, MultipleSeries]:
     """
-    Here, we compute the aggregations used in the M5 evaluation. Each aggregation corresponds
-    to the operation groupby-sum. The aggregations are split in 12 different levels. For each level,
-    we compute an array, in which rows are the elements of the aggregation, columns are time, and
-    the value is the sum of unit sales of the given element on that day. Arrays in each level have
+    Here, we compute the aggregations used in the M5 evaluation. Each
+    aggregation corresponds to the operation groupby-sum. The
+    aggregations are split in 12 different levels. For each level, we
+    compute an array, in which rows are the elements of the
+    aggregation, columns are time, and the value is the sum of unit
+    sales of the given element on that day. Arrays in each level have
     different number of rows, but the same number of columns.
+
+    | id | Aggregation Level                                      | Series |
+    | -- | -----------------                                      | ------ |
+    | 1  | all products, aggregated for all stores/states         | 1      |
+    | 2  | all products, aggregated for each State                | 3      |
+    | 3  | all products, aggregated for each store                | 10     |
+    | 4  | all products, aggregated for each category             | 3      |
+    | 5  | all products, aggregated for each department           | 7      |
+    | 6  | all products, aggregated for each State and category   | 9      |
+    | 7  | all products, aggregated for each State and department | 21     |
+    | 8  | all products, aggregated for each store and category   | 30     |
+    | 9  | all products, aggregated for each store and department | 70     |
+    | 10 | product x, aggregated for all stores/states            | 3,049  |
+    | 11 | product x, aggregated for each State                   | 9,147  |
+    | 12 | product x, aggregated for each store                   | 30,490 |
+    |    | total                                                  | 42,840 |
     """
     # TODO: make tf version
     # TODO: include weights
