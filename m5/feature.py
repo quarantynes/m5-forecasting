@@ -10,51 +10,64 @@ ItemVector = NDArray[(30490), np.float32]
 ItemArray = NDArray[(30490, Any), np.float32]
 MultipleSeries = NDArray[(Any, Any), np.float32]
 
-@memory.cache
+
+@memory.cache()
 def item_id() -> pd.Series:
     id = pd.read_csv(SALES_TRAIN_VALIDATION, usecols=["id"])
     id = id.squeeze()
     return id
 
-@memory.cache
+
+@memory.cache()
 def item_store() -> Tuple[ItemArray, list]:
-    store = pd.read_csv(SALES_TRAIN_VALIDATION, usecols=["store_id"], dtype='category')
+    store = pd.read_csv(SALES_TRAIN_VALIDATION,
+                        usecols=["store_id"],
+                        dtype='category')
     store = store.squeeze()
     return store.cat.codes.values, store.cat.categories
 
 
-@memory.cache
+@memory.cache()
 def item_dept() -> Tuple[ItemArray, list]:
-    dept = pd.read_csv(SALES_TRAIN_VALIDATION, usecols=["dept_id"], dtype='category')
+    dept = pd.read_csv(SALES_TRAIN_VALIDATION,
+                       usecols=["dept_id"],
+                       dtype='category')
     dept = dept.squeeze()
     return dept.cat.codes.values, dept.cat.categories
 
 
-@memory.cache
+@memory.cache()
 def item_state() -> Tuple[ItemArray, list]:
-    state = pd.read_csv(SALES_TRAIN_VALIDATION, usecols=["state_id"], dtype='category')
+    state = pd.read_csv(SALES_TRAIN_VALIDATION,
+                        usecols=["state_id"],
+                        dtype='category')
     state = state.squeeze()
     return state.cat.codes.values, state.cat.categories
 
 
-@memory.cache
+@memory.cache()
 def item_category() -> Tuple[ItemArray, list]:
-    c = pd.read_csv(SALES_TRAIN_VALIDATION, usecols=["cat_id"], dtype='category')
+    c = pd.read_csv(SALES_TRAIN_VALIDATION,
+                    usecols=["cat_id"],
+                    dtype='category')
     c = c.squeeze()
     return c.cat.codes.values, c.cat.categories
 
 
-@memory.cache
+@memory.cache()
 def item_kind() -> Tuple[ItemArray, list]:
-    kind = pd.read_csv(SALES_TRAIN_VALIDATION, usecols=["item_id"], dtype='category')
+    kind = pd.read_csv(SALES_TRAIN_VALIDATION,
+                       usecols=["item_id"],
+                       dtype='category')
     kind = kind.squeeze()
     return kind.cat.codes.values, kind.cat.categories
 
 
-@memory.cache
+@memory.cache()
 def prices_per_item_over_time() -> ItemArray:
     week_day = pd.read_csv(CALENDAR, usecols=['wm_yr_wk', 'd'])
-    items = pd.read_csv(SALES_TRAIN_VALIDATION, usecols=['id', 'store_id', 'item_id'])
+    items = pd.read_csv(SALES_TRAIN_VALIDATION,
+                        usecols=['id', 'store_id', 'item_id'])
     p = pd.read_csv(SELL_PRICES)  # ,dtype={"sell_price":np.float16})
     p = p.merge(week_day, on="wm_yr_wk")
     p = p.merge(items, on=['store_id', 'item_id'])
@@ -74,7 +87,7 @@ def prices_per_item_over_time() -> ItemArray:
     return p.values.astype(np.float32)
 
 
-@memory.cache
+@memory.cache()
 def unit_sales_per_item_over_time() -> ItemArray:
     s = open_items_sale_data()
     s = s.set_index("id")
@@ -89,7 +102,7 @@ def unit_sales_per_item_over_time() -> ItemArray:
     return s.values.astype(np.float32)
 
 
-@memory.cache
+@memory.cache()
 def item_weight() -> ItemVector:
     """
     The weights for each item are computed based on the difference of
@@ -100,16 +113,12 @@ def item_weight() -> ItemVector:
     """
     s = unit_sales_per_item_over_time()
     s = s[:, 0:-28 * 1].astype(np.float32)
-    item_w = np.sqrt(
-        np.mean(
-            np.diff(s, axis=1) ** 2,
-            axis=1
-        )
-    )
+    item_w = np.sqrt(np.mean(np.diff(s, axis=1)**2, axis=1))
     assert isinstance(item_w, ItemVector), ItemVector.type_of(item_w)
     return item_w
 
-@memory.cache
+
+@memory.cache()
 def series_weight(s) -> ItemVector:
     """
     The weights for each series are computed based on the difference
@@ -120,14 +129,12 @@ def series_weight(s) -> ItemVector:
     """
     s = s[:, 0:-28 * 1]
     # item_w = np.sqrt(
-    item_w = np.mean(
-            np.diff(s, axis=1) ** 2,
-            axis=1
-        )
+    item_w = np.mean(np.diff(s, axis=1)**2, axis=1)
     # )
     return item_w
 
-@memory.cache
+
+@memory.cache()
 def sales_weight() -> ItemVector:
     """
     These weights are the sum of dollar sales of the last 28 days in
@@ -188,7 +195,7 @@ def compose_aggregation_matrices(A: ItemVector, B: ItemVector) -> ItemVector:
     return output
 
 
-@memory.cache
+@memory.cache()
 def get_aggregation_matrices():
     """
     Returns the 12 aggregation matrices in vector format.
@@ -201,7 +208,7 @@ def get_aggregation_matrices():
     it_kind, it_kind_idx = item_kind()
 
     output = []
-    output.append(np.zeros((NB_ITEMS),dtype=int))
+    output.append(np.zeros((NB_ITEMS), dtype=int))
     for grouping in [it_state, it_store, it_category, it_dept]:
         output.append(grouping)
     for (gr_a, gr_b) in product([it_state, it_store], [it_category, it_dept]):
@@ -214,7 +221,7 @@ def get_aggregation_matrices():
     return output
 
 
-@memory.cache
+@memory.cache()
 def unit_sales_aggregation() -> Dict[int, MultipleSeries]:
     """
     Here, we compute the aggregations used in the M5 evaluation. Each
@@ -253,7 +260,7 @@ def unit_sales_aggregation() -> Dict[int, MultipleSeries]:
     aggregations = {}
 
     # level 1: aggregate all
-    agg = np.sum(all_sales, axis=0, keepdims=True,dtype=np.float32)
+    agg = np.sum(all_sales, axis=0, keepdims=True, dtype=np.float32)
     assert agg.shape == (1, NB_DAYS), agg.shape
     aggregations[1] = agg
 
@@ -265,7 +272,8 @@ def unit_sales_aggregation() -> Dict[int, MultipleSeries]:
         aggregations[i] = agg
     # level 6,7,8,9: state.category, state.dept, store.category,store.dept
     from itertools import product
-    for i, (gr_a, gr_b) in enumerate(product([it_state, it_store], [it_category, it_dept])):
+    for i, (gr_a, gr_b) in enumerate(
+            product([it_state, it_store], [it_category, it_dept])):
         i += 6
         grouping = compose_aggregation_matrices(gr_a, gr_b)
         agg = tf_groupby(all_sales, grouping)
@@ -281,7 +289,9 @@ def unit_sales_aggregation() -> Dict[int, MultipleSeries]:
     # level 11
     grouping = compose_aggregation_matrices(it_kind, it_state)
     agg = tf_groupby(all_sales, grouping)
-    assert agg.shape == (len(np.unique(grouping)), NB_DAYS), f"{agg.shape} == ({len(np.unique(grouping))}, {NB_DAYS})"
+    assert agg.shape == (
+        len(np.unique(grouping)),
+        NB_DAYS), f"{agg.shape} == ({len(np.unique(grouping))}, {NB_DAYS})"
     aggregations[11] = agg
 
     # level 12
