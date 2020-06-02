@@ -34,7 +34,7 @@ def write_output(H, dir="evaluation"):
     from m5.feature import item_id
     df.insert(0, "id", item_id())
     step = tf.summary.experimental.get_step()
-    df.to_csv(f"../data/{dir}/output_on_step{step}.csv", index=False)
+    df.to_csv(f"data/{dir}/output_on_step{step}.csv", index=False)
 
 
 # Training
