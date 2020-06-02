@@ -1,5 +1,5 @@
 import tensorflow as tf
-from tensorflow_core.python.keras.api._v2.keras import layers
+from tensorflow.keras import layers
 
 
 
