@@ -5,16 +5,44 @@ import tensorflow as tf
 import m5.setup
 
 # Training parameters
-from m5.params import (
-    batch_size,
-    model_name,
-    logdir,
-    nb_epochs,
-    evaluation_period
-)
+from m5.params import (batch_size, model_name, logdir, nb_epochs,
+                       evaluation_period)
 
 # Model definition
-from m5.models import ModelV1
+from tensorflow.keras import layers
+
+
+class ModelV1(tf.keras.models.Model):
+    def __init__(self, gru_units, dnn_units, nonCuda=False, **kwargs):
+        super().__init__(**kwargs)
+        if nonCuda:
+            self.shared_layer = layers.RNN(layers.GRUCell(gru_units),
+                                           return_sequences=True,
+                                           name="sharedGru")
+        else:
+            self.shared_layer = layers.GRU(
+                gru_units,
+                return_sequences=True,
+                # stateful=True,
+                name="shared_GRU",
+            )
+        self.DNN = layers.TimeDistributed(
+            tf.keras.Sequential(
+                [
+                    # layers.Dense(units=dnn_units, activation=tf.keras.activations.relu),
+                    # layers.Dense(units=dnn_units//2, activation=tf.keras.activations.relu),
+                    # layers.Dense(units=dnn_units//4, activation=tf.keras.activations.relu),
+                    layers.Dense(1),
+                ], ),
+            name="shared_DNN",
+        )
+
+    def call(self, inputs, training=None, mask=None):
+        gru_output = self.shared_layer(inputs)
+        output = self.DNN(gru_output)
+        output = tf.squeeze(output)
+        return output
+
 
 model = ModelV1(
     gru_units=8,
@@ -50,7 +78,7 @@ def train_batch(model, X, Y, w):
     with tf.GradientTape() as tape:
         H = model(X)
         loss = tf.losses.mean_squared_error(Y, H)
-        loss = loss ** 0.5
+        loss = loss**0.5
         loss = loss * w
     grads = tape.gradient(loss, model.trainable_weights)
     optimizer.apply_gradients(zip(grads, model.trainable_weights))
@@ -65,7 +93,7 @@ def evaluate(model, eval_slice=slice(-28, None)):
         H = H[:, eval_slice]
         Y = Y[:, eval_slice]
         loss_i = tf.losses.mean_squared_error(Y, H)
-        loss_i = loss_i ** 0.5
+        loss_i = loss_i**0.5
         loss_i = loss_i * w
         loss_list.append(loss_i)
         Hlist.append(H)
@@ -89,14 +117,16 @@ with tf.summary.create_file_writer(logdir).as_default():
         for (X, Y, w) in tqdm(batch_generator(batch_size=batch_size)):
             increment_step()
             batch_loss = train_batch(model, X, Y, w)
-            tf.summary.scalar(f"{model.name}_batch_loss", tf.reduce_mean(batch_loss))
+            tf.summary.scalar(f"{model.name}_batch_loss",
+                              tf.reduce_mean(batch_loss))
 
             if evaluate_now():
                 H, loss = evaluate(model)
-                tf.summary.scalar(f"{model.name}_eval_loss", tf.reduce_mean(loss))
+                tf.summary.scalar(f"{model.name}_eval_loss",
+                                  tf.reduce_mean(loss))
                 write_output(H, "evaluation")
 
 # Save Model
 # TODO: save model here and implement prediction/submission
-X,Y,w = batch_generator(eval_data=True,batch_size=batch_size)
+X, Y, w = batch_generator(eval_data=True, batch_size=batch_size)
 model.save(f"../data/saved_models/{model.name}.tf")
