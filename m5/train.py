@@ -5,57 +5,103 @@ import tensorflow as tf
 import m5.setup
 
 # Training parameters
-from m5.params import (batch_size, model_name, logdir, nb_epochs,
-                       evaluation_period)
+from m5.params import (
+    batch_size,
+    logdir,
+    nb_epochs,
+    training_days,
+    validation_range,
+    submission_range,
+    nb_items,
+)
 
 # Model definition
 from tensorflow.keras import layers
 
 
-class ModelV1(tf.keras.models.Model):
-    def __init__(self, gru_units, dnn_units, nonCuda=False, **kwargs):
+class StModel(tf.keras.models.Model):
+    """
+    This model predicts the unit sale for a given product_id, in a given day.
+    There are 30490 different product_id while the time span in this dataset
+    cover almost 2000 days.
+    When submitting the prediction, this model should be evaluated 28 times for
+    each product_id, one for each day in the submission range.
+    The inputs of this model are:
+    - product category (categorical)
+    - product department (categorical)
+    - week of the year (int)
+    - day of the week (int)
+    - snap in product_id state (boolean)
+    """
+    def __init__(self, dnn_units, **kwargs):
         super().__init__(**kwargs)
-        if nonCuda:
-            self.shared_layer = layers.RNN(layers.GRUCell(gru_units),
-                                           return_sequences=True,
-                                           name="sharedGru")
-        else:
-            self.shared_layer = layers.GRU(
-                gru_units,
-                return_sequences=True,
-                # stateful=True,
-                name="shared_GRU",
-            )
-        self.DNN = layers.TimeDistributed(
-            tf.keras.Sequential(
-                [
-                    # layers.Dense(units=dnn_units, activation=tf.keras.activations.relu),
-                    # layers.Dense(units=dnn_units//2, activation=tf.keras.activations.relu),
-                    # layers.Dense(units=dnn_units//4, activation=tf.keras.activations.relu),
-                    layers.Dense(1),
-                ], ),
-            name="shared_DNN",
-        )
+        self.DNN = tf.keras.Sequential(
+            [
+                layers.Dense(units=dnn_units,
+                             activation=tf.keras.activations.relu),
+                layers.Dense(units=dnn_units // 2,
+                             activation=tf.keras.activations.relu),
+                layers.Dense(units=dnn_units // 4,
+                             activation=tf.keras.activations.relu),
+                layers.Dense(1),
+            ],
+            name="DNN",
+        ),
 
     def call(self, inputs, training=None, mask=None):
-        gru_output = self.shared_layer(inputs)
-        output = self.DNN(gru_output)
-        output = tf.squeeze(output)
+        output = self.DNN(inputs)
         return output
 
 
-model = ModelV1(
-    gru_units=8,
+model = StModel(
     dnn_units=32,
-    nonCuda=False,
-    name=model_name,
+    name="StModel",
 )
 
 # Data loading
 from m5.data_loading import batch_generator
+from m5.feature import (item_category, item_dept, item_state, reduced_calendar,
+                        item_state_as_pandas)
 
 
-# IO
+def batch_generator(mode, batch_size):
+    """ This generator returns either random samples from the training set or
+    ordered samples from the validation dataset.
+    If mode is:
+      - 'train', it generates random samples from the training set.
+      - 'validation', it generates ordered samples from the validation set.
+      - 'submission', it generates ordered samples from the submission set.
+    """
+    assert mode in ['train', 'submission', 'validation']
+    if mode == 'train':
+        # nb_sample_days = 128
+        # nb_sample_items = 512
+        # batch_size = nb_sample_days * nb_sample_items
+        from numpy.random import randint
+        days_index = randint(training_days, size=batch_size)
+        items_index = randint(nb_items, size=batch_size)
+
+        feat_item_category, _ = item_category()
+        feat_item_category = feat_item_category.take(items_index)
+
+        feat_item_dept, _ = item_dept()
+        feat_item_dept = feat_item_dept.take(items_index)
+
+        feat_calendar = reduced_calendar()
+        feat_calendar = feat_calendar.take(days_index)
+
+        snap_columns = [
+            col for col in feat_calendar.columns if col.startswith('snap_')
+        ]
+        feat_snap = feat_calendar.loc[snap_columns+['d']]
+        state_df = item_state_as_pandas()
+        feat_snap = feat_snap.set_index('d').lookup(
+            state_df.d,
+            state_df.state_id
+        )
+        # TODO: set column names for lookup
+
+# IO:
 def write_output(H, dir="evaluation"):
     import pandas as pd
     df = pd.DataFrame(H.numpy(), columns=[f"F{i}" for i in range(1, 1 + 28)])
