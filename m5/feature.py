@@ -14,7 +14,6 @@ SALES_TRAIN_VALIDATION = "data/sales_train_validation.csv"
 CALENDAR = "data/calendar.csv"
 SELL_PRICES = "data/sell_prices.csv"
 
-
 ItemVector = NDArray[(30490), np.float32]
 ItemArray = NDArray[(30490, Any), np.float32]
 MultipleSeries = NDArray[(Any, Any), np.float32]
@@ -55,6 +54,15 @@ def item_state() -> Tuple[ItemArray, list]:
 
 
 @memory.cache
+def item_state_as_pandas() -> Tuple[pd.DataFrame, list]:
+    state = pd.read_csv(SALES_TRAIN_VALIDATION,
+                        usecols=['d',"state_id"],
+                        dtype='category')
+    state = state.squeeze()
+    return state
+
+
+@memory.cache
 def item_category() -> Tuple[ItemArray, list]:
     c = pd.read_csv(SALES_TRAIN_VALIDATION,
                     usecols=["cat_id"],
@@ -78,6 +86,7 @@ def open_items_sale_data():
     columns = pd.read_csv(path, nrows=0).columns
     d_columns = [col for col in columns if col.startswith("d_")]
     return pd.read_csv(path, dtype={col: np.float16 for col in d_columns})
+
 
 @memory.cache
 def prices_per_item_over_time() -> ItemArray:
@@ -289,3 +298,12 @@ def unit_sales_aggregation() -> Dict[int, MultipleSeries]:
     aggregations[12] = all_sales
 
     return aggregations
+
+
+@memory.cache
+def reduced_calendar():
+    c = pd.read_csv(
+        CALENDAR,
+        usecols=['d','wday', 'month', 'year', 'snap_CA', 'snap_TX', 'snap_WI'],
+    )
+    return c
