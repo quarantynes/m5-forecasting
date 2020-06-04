@@ -13,12 +13,13 @@ from m5.params import (
     evaluation_range,
     submission_range,
     nb_items,
+    steps_per_epoch,
 )
 
 # Model definition
 from tensorflow.keras import layers
 
-
+# TODO: make model for new batch loader
 class StModel(tf.keras.models.Model):
     """
     This model predicts the unit sale for a given product_id, in a given day.
@@ -95,7 +96,7 @@ def make_batch(items_index,days_index):
     ).drop_duplicates(
     ).set_index('index')
 
-    # bi-dimensional lookup on snap_df to get snap information for 
+    # bi-dimensional lookup on snap_df to get snap information for
     # given items and given days
     feat_snap = snap_df.lookup(days_index,state_series[items_index])
 
@@ -115,6 +116,7 @@ def make_batch(items_index,days_index):
 
     weight = item_weight()[items_index]
     return features, target, weight
+
 
 def batch_generator(mode, batch_size):
     """ This generator returns either random samples from the training set or
@@ -136,7 +138,7 @@ def batch_generator(mode, batch_size):
             days_index = [day_i]*nb_items
             items_index = list(range(nb_items))
             yield make_batch(items_index,days_index)
-            
+
     elif mode == 'submission':
         for day_i in range(*submission_range):
             days_index = [day_i]*nb_items
@@ -146,6 +148,7 @@ def batch_generator(mode, batch_size):
     else:
         raise ValueError(
             f"mode({mode}) should be train, evaluation or submission")
+
 
 def write_output(H, dir="evaluation"):
     import pandas as pd
@@ -160,9 +163,10 @@ def write_output(H, dir="evaluation"):
 def increment_step():
     step = tf.summary.experimental.get_step()
     if step is None:
-        tf.summary.experimental.set_step(0)
+        tf.summary.experimental.set_step(1)
     else:
         tf.summary.experimental.set_step(step + 1)
+    return tf.summary.experimental.get_step()
 
 
 def train_batch(model, X, Y, w):
@@ -179,7 +183,7 @@ def train_batch(model, X, Y, w):
 def evaluate(model, eval_slice=slice(-28, None)):
     loss_list = []
     Hlist = []
-    for (X, Y, w) in (batch_generator(eval_data=True, batch_size=10)):
+    for (X, Y, w) in (batch_generator(mode='evaluation', batch_size=None)):
         H = model(X)
         H = H[:, eval_slice]
         Y = Y[:, eval_slice]
@@ -197,8 +201,8 @@ def evaluate_now(evaluation_period=100) -> bool:
     step = tf.summary.experimental.get_step()
     return (step % evaluation_period) == 0
 
-if __name__=='main':
 
+if __name__ == 'main':
     # Training Loop
     optimizer = tf.keras.optimizers.Adam(learning_rate=1e-3)
 
@@ -206,8 +210,13 @@ if __name__=='main':
         for epoch in range(nb_epochs):
             print(f"Epoch: {epoch}")
 
-            for (X, Y, w) in tqdm(batch_generator(batch_size=batch_size)):
-                increment_step()
+            for (X, Y, w) in tqdm(
+                    batch_generator(mode='train', batch_size=batch_size)
+            ):
+                if increment_step() % steps_per_epoch == 0:
+                    # need break here because the generator is infinite
+                    break
+
                 batch_loss = train_batch(model, X, Y, w)
                 tf.summary.scalar(f"{model.name}_batch_loss",
                                   tf.reduce_mean(batch_loss))

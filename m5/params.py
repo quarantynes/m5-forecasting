@@ -13,3 +13,5 @@ evaluation_period = 100
 training_days = days - 28
 evaluation_range = (training_days, training_days+28)
 submission_range = (training_days+28, training_days+56)
+
+steps_per_epoch = 500
