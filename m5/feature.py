@@ -54,15 +54,6 @@ def item_state() -> Tuple[ItemArray, list]:
 
 
 @memory.cache
-def item_state_as_pandas() -> Tuple[pd.DataFrame, list]:
-    state = pd.read_csv(SALES_TRAIN_VALIDATION,
-                        usecols=['d',"state_id"],
-                        dtype='category')
-    state = state.squeeze()
-    return state
-
-
-@memory.cache
 def item_category() -> Tuple[ItemArray, list]:
     c = pd.read_csv(SALES_TRAIN_VALIDATION,
                     usecols=["cat_id"],
