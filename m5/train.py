@@ -61,8 +61,9 @@ model = StModel(
 # Data loading
 from m5.data_loading import batch_generator
 from m5.feature import (item_category, item_dept, item_state, reduced_calendar,
-                        item_state_as_pandas)
+                        item_state)
 
+import pandas as pd
 
 def batch_generator(mode, batch_size):
     """ This generator returns either random samples from the training set or
@@ -90,15 +91,32 @@ def batch_generator(mode, batch_size):
         feat_calendar = reduced_calendar()
         feat_calendar = feat_calendar.take(days_index)
 
-        snap_columns = [
-            col for col in feat_calendar.columns if col.startswith('snap_')
-        ]
-        feat_snap = feat_calendar.loc[snap_columns+['d']]
-        state_df = item_state_as_pandas()
-        feat_snap = feat_snap.set_index('d').lookup(
-            state_df.d,
-            state_df.state_id
+        # load item_state as pandas series
+        state_series = pd.Categorical.from_codes(*item_state())
+
+        # split feat_calendar into feat_calendar and snap_df
+        # then, rename snap_df columns to match the values in state_series
+        snap_df = feat_calendar[['snap_CA', 'snap_TX', 'snap_WI']]
+        feat_calendar = feat_calendar.drop(
+            columns=['snap_CA', 'snap_TX', 'snap_WI'])
+        snap_df = snap_df.rename(columns={
+            'snap_CA': 'CA',
+            'snap_TX': 'TX',
+            'snap_WI': 'WI'
+        },
         )
+
+        # bi-dimensional lookup on snap_df to get snap information for given
+        # items and given days
+        feat_snap = snap_df.lookup(days_index,state_series[items_index])
+
+        features = dict(
+            category=feat_item_category,
+            dept=feat_item_dept,
+            calendar=feat_calendar,
+            snap=feat_snap,
+        )
+        yield features
         # TODO: set column names for lookup
 
 # IO:
