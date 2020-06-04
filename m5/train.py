@@ -10,7 +10,7 @@ from m5.params import (
     logdir,
     nb_epochs,
     training_days,
-    validation_range,
+    evaluation_range,
     submission_range,
     nb_items,
 )
@@ -60,68 +60,92 @@ model = StModel(
 
 # Data loading
 from m5.feature import (item_category, item_dept, item_state, reduced_calendar,
-                        item_state)
+                        item_state, unit_sales_per_item_over_time, item_weight)
 
 import pandas as pd
+
+def make_batch(items_index,days_index):
+    """Computes one batch for given items and days"""
+    feat_item_category, _ = item_category()
+    feat_item_category = feat_item_category.take(items_index)
+
+    feat_item_dept, _ = item_dept()
+    feat_item_dept = feat_item_dept.take(items_index)
+
+    feat_calendar = reduced_calendar()
+    feat_calendar = feat_calendar.take(days_index)
+
+    # load item_state as pandas series
+    state_series = pd.Categorical.from_codes(*item_state())
+
+    # split feat_calendar into feat_calendar and snap_df
+    # then, rename snap_df columns to match the values in state_series
+    snap_df = feat_calendar[['snap_CA', 'snap_TX', 'snap_WI']]
+    feat_calendar = feat_calendar.drop(
+        columns=['snap_CA', 'snap_TX', 'snap_WI'])
+    snap_df = snap_df.rename(columns={
+        'snap_CA': 'CA',
+        'snap_TX': 'TX',
+        'snap_WI': 'WI'
+    })
+
+    # remove duplicated items in snap_df
+    # note that drop_duplicates applies only to columns
+    snap_df = snap_df.reset_index(
+    ).drop_duplicates(
+    ).set_index('index')
+
+    # bi-dimensional lookup on snap_df to get snap information for 
+    # given items and given days
+    feat_snap = snap_df.lookup(days_index,state_series[items_index])
+
+    features = dict(
+        category=feat_item_category,
+        dept=feat_item_dept,
+        weekday=feat_calendar.wday.values,
+        month=feat_calendar.month.values,
+        year=feat_calendar.year.values,
+        snap=feat_snap,
+    )
+
+    try:
+        target = unit_sales_per_item_over_time()[items_index,days_index]
+    except IndexError:
+        target = None
+
+    weight = item_weight()[items_index]
+    return features, target, weight
 
 def batch_generator(mode, batch_size):
     """ This generator returns either random samples from the training set or
     ordered samples from the validation dataset.
     If mode is:
       - 'train', it generates random samples from the training set.
-      - 'validation', it generates ordered samples from the validation set.
+      - 'evaluation', it generates ordered samples from the validation set.
       - 'submission', it generates ordered samples from the submission set.
     """
-    assert mode in ['train', 'submission', 'validation']
     if mode == 'train':
         while True:
-            # nb_sample_days = 128
-            # nb_sample_items = 512
-            # batch_size = nb_sample_days * nb_sample_items
             from numpy.random import randint
             days_index = randint(training_days, size=batch_size)
             items_index = randint(nb_items, size=batch_size)
-            feat_item_category, _ = item_category()
-            feat_item_category = feat_item_category.take(items_index)
+            yield make_batch(items_index,days_index)
 
-            feat_item_dept, _ = item_dept()
-            feat_item_dept = feat_item_dept.take(items_index)
+    elif mode == 'evaluation':
+        for day_i in range(*evaluation_range):
+            days_index = [day_i]*nb_items
+            items_index = list(range(nb_items))
+            yield make_batch(items_index,days_index)
             
-            feat_calendar = reduced_calendar()
-            feat_calendar = feat_calendar.take(days_index)
+    elif mode == 'submission':
+        for day_i in range(*submission_range):
+            days_index = [day_i]*nb_items
+            items_index = list(range(nb_items))
+            yield make_batch(items_index,days_index)
 
-            # load item_state as pandas series
-            state_series = pd.Categorical.from_codes(*item_state())
-
-            # split feat_calendar into feat_calendar and snap_df
-            # then, rename snap_df columns to match the values in state_series
-            snap_df = feat_calendar[['snap_CA', 'snap_TX', 'snap_WI']]
-            feat_calendar = feat_calendar.drop(
-                columns=['snap_CA', 'snap_TX', 'snap_WI'])
-            snap_df = snap_df.rename(columns={
-                'snap_CA': 'CA',
-                'snap_TX': 'TX',
-                'snap_WI': 'WI'
-            },
-            )
-
-            # remove duplicated items in snap_df
-            # note that drop_duplicates applies only to columns
-            snap_df = snap_df.reset_index().drop_duplicates().set_index('index')
-
-            # bi-dimensional lookup on snap_df to get snap information for given
-            # items and given days
-            feat_snap = snap_df.lookup(days_index,state_series[items_index])
-
-            features = dict(
-                category=feat_item_category,
-                dept=feat_item_dept,
-                weekday=feat_calendar.wday.values,
-                month=feat_calendar.month.values,
-                year=feat_calendar.year.values,
-                snap=feat_snap,
-            )
-            yield features
+    else:
+        raise ValueError(
+            f"mode({mode}) should be train, evaluation or submission")
 
 def write_output(H, dir="evaluation"):
     import pandas as pd
