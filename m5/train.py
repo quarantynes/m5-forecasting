@@ -59,7 +59,6 @@ model = StModel(
 )
 
 # Data loading
-from m5.data_loading import batch_generator
 from m5.feature import (item_category, item_dept, item_state, reduced_calendar,
                         item_state)
 
@@ -75,51 +74,55 @@ def batch_generator(mode, batch_size):
     """
     assert mode in ['train', 'submission', 'validation']
     if mode == 'train':
-        # nb_sample_days = 128
-        # nb_sample_items = 512
-        # batch_size = nb_sample_days * nb_sample_items
-        from numpy.random import randint
-        days_index = randint(training_days, size=batch_size)
-        items_index = randint(nb_items, size=batch_size)
+        while True:
+            # nb_sample_days = 128
+            # nb_sample_items = 512
+            # batch_size = nb_sample_days * nb_sample_items
+            from numpy.random import randint
+            days_index = randint(training_days, size=batch_size)
+            items_index = randint(nb_items, size=batch_size)
+            feat_item_category, _ = item_category()
+            feat_item_category = feat_item_category.take(items_index)
 
-        feat_item_category, _ = item_category()
-        feat_item_category = feat_item_category.take(items_index)
+            feat_item_dept, _ = item_dept()
+            feat_item_dept = feat_item_dept.take(items_index)
+            
+            feat_calendar = reduced_calendar()
+            feat_calendar = feat_calendar.take(days_index)
 
-        feat_item_dept, _ = item_dept()
-        feat_item_dept = feat_item_dept.take(items_index)
+            # load item_state as pandas series
+            state_series = pd.Categorical.from_codes(*item_state())
 
-        feat_calendar = reduced_calendar()
-        feat_calendar = feat_calendar.take(days_index)
+            # split feat_calendar into feat_calendar and snap_df
+            # then, rename snap_df columns to match the values in state_series
+            snap_df = feat_calendar[['snap_CA', 'snap_TX', 'snap_WI']]
+            feat_calendar = feat_calendar.drop(
+                columns=['snap_CA', 'snap_TX', 'snap_WI'])
+            snap_df = snap_df.rename(columns={
+                'snap_CA': 'CA',
+                'snap_TX': 'TX',
+                'snap_WI': 'WI'
+            },
+            )
 
-        # load item_state as pandas series
-        state_series = pd.Categorical.from_codes(*item_state())
+            # remove duplicated items in snap_df
+            # note that drop_duplicates applies only to columns
+            snap_df = snap_df.reset_index().drop_duplicates().set_index('index')
 
-        # split feat_calendar into feat_calendar and snap_df
-        # then, rename snap_df columns to match the values in state_series
-        snap_df = feat_calendar[['snap_CA', 'snap_TX', 'snap_WI']]
-        feat_calendar = feat_calendar.drop(
-            columns=['snap_CA', 'snap_TX', 'snap_WI'])
-        snap_df = snap_df.rename(columns={
-            'snap_CA': 'CA',
-            'snap_TX': 'TX',
-            'snap_WI': 'WI'
-        },
-        )
+            # bi-dimensional lookup on snap_df to get snap information for given
+            # items and given days
+            feat_snap = snap_df.lookup(days_index,state_series[items_index])
 
-        # bi-dimensional lookup on snap_df to get snap information for given
-        # items and given days
-        feat_snap = snap_df.lookup(days_index,state_series[items_index])
+            features = dict(
+                category=feat_item_category,
+                dept=feat_item_dept,
+                weekday=feat_calendar.wday.values,
+                month=feat_calendar.month.values,
+                year=feat_calendar.year.values,
+                snap=feat_snap,
+            )
+            yield features
 
-        features = dict(
-            category=feat_item_category,
-            dept=feat_item_dept,
-            calendar=feat_calendar,
-            snap=feat_snap,
-        )
-        yield features
-        # TODO: set column names for lookup
-
-# IO:
 def write_output(H, dir="evaluation"):
     import pandas as pd
     df = pd.DataFrame(H.numpy(), columns=[f"F{i}" for i in range(1, 1 + 28)])
@@ -166,31 +169,32 @@ def evaluate(model, eval_slice=slice(-28, None)):
     return H, loss
 
 
-def evaluate_now(evaluation_period=evaluation_period) -> bool:
+def evaluate_now(evaluation_period=100) -> bool:
     step = tf.summary.experimental.get_step()
     return (step % evaluation_period) == 0
 
+if __name__=='main':
 
-# Training Loop
-optimizer = tf.keras.optimizers.Adam(learning_rate=1e-3)
+    # Training Loop
+    optimizer = tf.keras.optimizers.Adam(learning_rate=1e-3)
 
-with tf.summary.create_file_writer(logdir).as_default():
-    for epoch in range(nb_epochs):
-        print(f"Epoch: {epoch}")
+    with tf.summary.create_file_writer(logdir).as_default():
+        for epoch in range(nb_epochs):
+            print(f"Epoch: {epoch}")
 
-        for (X, Y, w) in tqdm(batch_generator(batch_size=batch_size)):
-            increment_step()
-            batch_loss = train_batch(model, X, Y, w)
-            tf.summary.scalar(f"{model.name}_batch_loss",
-                              tf.reduce_mean(batch_loss))
+            for (X, Y, w) in tqdm(batch_generator(batch_size=batch_size)):
+                increment_step()
+                batch_loss = train_batch(model, X, Y, w)
+                tf.summary.scalar(f"{model.name}_batch_loss",
+                                  tf.reduce_mean(batch_loss))
 
-            if evaluate_now():
-                H, loss = evaluate(model)
-                tf.summary.scalar(f"{model.name}_eval_loss",
-                                  tf.reduce_mean(loss))
-                write_output(H, "evaluation")
+                if evaluate_now():
+                    H, loss = evaluate(model)
+                    tf.summary.scalar(f"{model.name}_eval_loss",
+                                      tf.reduce_mean(loss))
+                    write_output(H, "evaluation")
 
-# Save Model
-# TODO: save model here and implement prediction/submission
-X, Y, w = batch_generator(eval_data=True, batch_size=batch_size)
-model.save(f"../data/saved_models/{model.name}.tf")
+    # Save Model
+    # TODO: save model here and implement prediction/submission
+    X, Y, w = batch_generator(eval_data=True, batch_size=batch_size)
+    model.save(f"../data/saved_models/{model.name}.tf")
