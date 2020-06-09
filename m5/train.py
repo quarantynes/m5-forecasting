@@ -80,6 +80,8 @@ def batch_generator(mode, batch_size):
       - 'train', it generates random samples from the training set.
       - 'evaluation', it generates ordered samples from the validation set.
       - 'submission', it generates ordered samples from the submission set.
+    When samples are ordered, each batch corresponds to the ordered days of a
+    unique item, which respects the natural order needed to write the final csv.
     """
     if mode == 'train':
         while True:
@@ -87,25 +89,16 @@ def batch_generator(mode, batch_size):
             days_index = randint(training_days, size=batch_size)
             items_index = randint(nb_items, size=batch_size)
             yield make_batch(items_index, days_index)
-
     elif mode == 'evaluation':
-        for day_i in range(*evaluation_range):
-            days_index = [day_i] * nb_items
-            items_index = list(range(nb_items))
-            yield make_batch(items_index, days_index)
-
+        for item_i in range(nb_items):
+            days_index = list(range(*evaluation_range))
+            items_index = item_i
+            yield make_batch(items_i, days_index)
     elif mode == 'submission':
-        for day_i in range(*submission_range):
-            days_index = [day_i] * nb_items
-            items_index = list(range(nb_items))
-            yield make_batch(items_index, days_index)
-
-    else:
-        raise ValueError(
-            f"mode({mode}) should be train, evaluation or submission")
-
-
-# Model definition
+        for item_i in range(nb_items):
+            days_index = list(range(*submission_range))
+            items_index = item_i
+            yield make_batch(items_i, days_index)
 
 
 
