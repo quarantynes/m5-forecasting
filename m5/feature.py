@@ -232,11 +232,29 @@ def get_aggregation_matrices():
 @memory.cache
 def unit_sales_aggregation() -> Dict[int, MultipleSeries]:
     """
-    Here, we compute the aggregations used in the M5 evaluation. Each aggregation corresponds
-    to the operation groupby-sum. The aggregations are split in 12 different levels. For each level,
-    we compute an array, in which rows are the elements of the aggregation, columns are time, and
-    the value is the sum of unit sales of the given element on that day. Arrays in each level have
+    Here, we compute the aggregations used in the M5 evaluation. Each
+    aggregation corresponds to the operation groupby-sum. The
+    aggregations are split in 12 different levels. For each level, we
+    compute an array, in which rows are the elements of the
+    aggregation, columns are time, and the value is the sum of unit
+    sales of the given element on that day. Arrays in each level have
     different number of rows, but the same number of columns.
+
+    | id | Aggregation Level                                      | Series |
+    | -- | -----------------                                      | ------ |
+    | 1  | all products, aggregated for all stores/states         | 1      |
+    | 2  | all products, aggregated for each State                | 3      |
+    | 3  | all products, aggregated for each store                | 10     |
+    | 4  | all products, aggregated for each category             | 3      |
+    | 5  | all products, aggregated for each department           | 7      |
+    | 6  | all products, aggregated for each State and category   | 9      |
+    | 7  | all products, aggregated for each State and department | 21     |
+    | 8  | all products, aggregated for each store and category   | 30     |
+    | 9  | all products, aggregated for each store and department | 70     |
+    | 10 | product x, aggregated for all stores/states            | 3,049  |
+    | 11 | product x, aggregated for each State                   | 9,147  |
+    | 12 | product x, aggregated for each store                   | 30,490 |
+    |    | total                                                  | 42,840 |
     """
     # TODO: make tf version
     # TODO: include weights
