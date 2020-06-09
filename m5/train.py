@@ -1,8 +1,7 @@
 from tqdm import tqdm
 import tensorflow as tf
-
+from tensorflow.keras import layers
 # Env setup
-import m5.setup
 
 # Training parameters
 from m5.params import (
@@ -16,56 +15,14 @@ from m5.params import (
     steps_per_epoch,
 )
 
-# Model definition
-from tensorflow.keras import layers
-
-# TODO: make model for new batch loader
-class StModel(tf.keras.models.Model):
-    """
-    This model predicts the unit sale for a given product_id, in a given day.
-    There are 30490 different product_id while the time span in this dataset
-    cover almost 2000 days.
-    When submitting the prediction, this model should be evaluated 28 times for
-    each product_id, one for each day in the submission range.
-    The inputs of this model are:
-    - product category (categorical)
-    - product department (categorical)
-    - week of the year (int)
-    - day of the week (int)
-    - snap in product_id state (boolean)
-    """
-    def __init__(self, dnn_units, **kwargs):
-        super().__init__(**kwargs)
-        self.DNN = tf.keras.Sequential(
-            [
-                layers.Dense(units=dnn_units,
-                             activation=tf.keras.activations.relu),
-                layers.Dense(units=dnn_units // 2,
-                             activation=tf.keras.activations.relu),
-                layers.Dense(units=dnn_units // 4,
-                             activation=tf.keras.activations.relu),
-                layers.Dense(1),
-            ],
-            name="DNN",
-        ),
-
-    def call(self, inputs, training=None, mask=None):
-        output = self.DNN(inputs)
-        return output
-
-
-model = StModel(
-    dnn_units=32,
-    name="StModel",
-)
-
 # Data loading
 from m5.feature import (item_category, item_dept, item_state, reduced_calendar,
-                        item_state, unit_sales_per_item_over_time, item_weight)
+                        unit_sales_per_item_over_time, item_weight)
 
 import pandas as pd
 
-def make_batch(items_index,days_index):
+
+def make_batch(items_index, days_index):
     """Computes one batch for given items and days"""
     feat_item_category, _ = item_category()
     feat_item_category = feat_item_category.take(items_index)
@@ -92,13 +49,11 @@ def make_batch(items_index,days_index):
 
     # remove duplicated items in snap_df
     # note that drop_duplicates applies only to columns
-    snap_df = snap_df.reset_index(
-    ).drop_duplicates(
-    ).set_index('index')
+    snap_df = snap_df.reset_index().drop_duplicates().set_index('index')
 
     # bi-dimensional lookup on snap_df to get snap information for
     # given items and given days
-    feat_snap = snap_df.lookup(days_index,state_series[items_index])
+    feat_snap = snap_df.lookup(days_index, state_series[items_index])
 
     features = dict(
         category=feat_item_category,
@@ -110,7 +65,7 @@ def make_batch(items_index,days_index):
     )
 
     try:
-        target = unit_sales_per_item_over_time()[items_index,days_index]
+        target = unit_sales_per_item_over_time()[items_index, days_index]
     except IndexError:
         target = None
 
@@ -120,7 +75,7 @@ def make_batch(items_index,days_index):
 
 def batch_generator(mode, batch_size):
     """ This generator returns either random samples from the training set or
-    ordered samples from the validation dataset.
+    ordered samples from the validation dataset. Each batch is a tuple (x,y,w)
     If mode is:
       - 'train', it generates random samples from the training set.
       - 'evaluation', it generates ordered samples from the validation set.
@@ -131,19 +86,19 @@ def batch_generator(mode, batch_size):
             from numpy.random import randint
             days_index = randint(training_days, size=batch_size)
             items_index = randint(nb_items, size=batch_size)
-            yield make_batch(items_index,days_index)
+            yield make_batch(items_index, days_index)
 
     elif mode == 'evaluation':
         for day_i in range(*evaluation_range):
-            days_index = [day_i]*nb_items
+            days_index = [day_i] * nb_items
             items_index = list(range(nb_items))
-            yield make_batch(items_index,days_index)
+            yield make_batch(items_index, days_index)
 
     elif mode == 'submission':
         for day_i in range(*submission_range):
-            days_index = [day_i]*nb_items
+            days_index = [day_i] * nb_items
             items_index = list(range(nb_items))
-            yield make_batch(items_index,days_index)
+            yield make_batch(items_index, days_index)
 
     else:
         raise ValueError(
@@ -159,7 +114,71 @@ def write_output(H, dir="evaluation"):
     df.to_csv(f"data/{dir}/output_on_step{step}.csv", index=False)
 
 
+# Model definition
+
+
+
+# TODO: make model for new batch loader
+class StModel(tf.keras.models.Model):
+    """
+    This model predicts the unit sale for a given product_id, in a given day.
+    There are 30490 different product_id while the time span in this dataset
+    cover almost 2000 days.
+    When submitting the prediction, this model should be evaluated 28 times for
+    each product_id, one for each day in the submission range.
+    The inputs of this model are:
+    - product category (categorical)
+    - product department (categorical)
+    - week of the year (int)
+    - day of the week (int)
+    - snap in product_id state (boolean)
+    """
+    def __init__(self, dnn_units, **kwargs):
+        super().__init__(**kwargs)
+        self.dnn_units = dnn_units
+        self.DNN = tf.keras.Sequential(
+            [
+                # layers.Dense(units=dnn_units,
+                #              activation=tf.keras.activations.relu),
+                # layers.Dense(units=dnn_units // 2,
+                #              activation=tf.keras.activations.relu),
+                # layers.Dense(units=dnn_units // 4,
+                #              activation=tf.keras.activations.relu),
+                layers.Dense(1),
+            ],
+            name="DNN",
+        )
+        # self.mydense = layers.Dense(1)
+
+    def call(self, inputs, training=None, mask=None):
+        """
+        In this model, inputs is a dict. The available features are those returned by make_batch()
+        """
+        L = layers.Embedding(7,
+                             self.dnn_units,
+                             input_length=1,
+                             input_shape=[None, 1])(inputs['category'])
+        output = self.DNN(L)
+        return output
+
+
+
+print("building model")
+model = StModel(
+    dnn_units=32,
+    name="StModel",
+)
+optimizer = tf.keras.optimizers.Adam(learning_rate=1e-3)
+print("testing model with one single batch")
+x,y,w = next(batch_generator(mode="train",batch_size=128))
+model(x)
+model.summary()
+print("model summary may appear incomplete if using subclassed model definition.")
+
+
 # Training
+
+
 def increment_step():
     step = tf.summary.experimental.get_step()
     if step is None:
