@@ -193,10 +193,14 @@ def evaluate_now(evaluation_period=100) -> bool:
 
 
 def evaluate(model):
-    """ Computes the prediction H and the loss for the whole evaluation range. H
-    is a TF array in which the number of rows corresponds to the number of
+    """ Computes the prediction H and the loss for the whole evaluation range.
+    Returns:
+    H: is a TF array in which the number of rows corresponds to the number of
     items, whereas the number of columns corresponds to the number of days in
-    the evaluation range. """
+    the evaluation range.
+    loss: is a TF scalar. The mean of the loss over all evaluation points is
+    computed inside this function.
+    """
     print("Entering in evaluate function.")
     loss_list = []
     Hlist = []
@@ -205,12 +209,16 @@ def evaluate(model):
         loss_i = tf.losses.mean_squared_error(Y, H)
         loss_i = loss_i**0.5
         loss_i = loss_i * w
+        loss_list.append(tf.reduce_mean(loss_i))
         # next, insert dummy dimension to prepare concatenation
-        loss_i = tf.expand_dims(loss_i,axis=-1)
-        loss_list.append(loss_i)
+        H = tf.expand_dims(H,axis=-1)
         Hlist.append(H)
     loss = tf.concat(loss_list, axis=1)
+    loss = tf.reduce_mean(loss)
     H = tf.concat(Hlist, axis=1)
+    assert H.shape == (30490,28)
+    assert loss.shape == (1,)
+    # TODO: teste this function
     return H, loss
 
 
