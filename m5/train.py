@@ -105,15 +105,6 @@ def batch_generator(mode, batch_size):
             f"mode({mode}) should be train, evaluation or submission")
 
 
-def write_output(H, dir="evaluation"):
-    import pandas as pd
-    df = pd.DataFrame(H.numpy(), columns=[f"F{i}" for i in range(1, 1 + 28)])
-    from m5.feature import item_id
-    df.insert(0, "id", item_id())
-    step = tf.summary.experimental.get_step()
-    df.to_csv(f"data/{dir}/output_on_step{step}.csv", index=False)
-
-
 # Model definition
 
 
@@ -162,7 +153,6 @@ class StModel(tf.keras.models.Model):
         return output
 
 
-
 print("building model")
 model = StModel(
     dnn_units=32,
@@ -199,7 +189,21 @@ def train_batch(model, X, Y, w):
     return loss
 
 
+
+def evaluate_now(evaluation_period=100) -> bool:
+    """
+    This method should be used to set evaluation independently of the epoch. It
+    returns True if the current iteration is a multiple of evaluation_period.
+    """
+    step = tf.summary.experimental.get_step()
+    return (step % evaluation_period) == 0
+
+
 def evaluate(model):
+    """ Computes the prediction H and the loss for the whole evaluation range. H
+    is a TF array in which the number of rows corresponds to the number of
+    items, whereas the number of columns corresponds to the number of days in
+    the evaluation range. """
     print("Entering in evaluate function.")
     loss_list = []
     Hlist = []
@@ -228,13 +232,21 @@ def submit(model):
     return H
 
 
-def evaluate_now(evaluation_period=100) -> bool:
+def write_output(H, dir="evaluation"):
+    """ Writes the TF array H to csv using a pandas DataFrame
     """
-    This method should be used to set evaluation independently of the epoch. It
-    returns True if the current iteration is a multiple of evaluation_period.
-    """
+    H = H.numpy()
+    assert  H.shape == (30490,28)
+    # using pandas fo IO
+    import pandas as pd
+    # create columns
+    df = pd.DataFrame(H, columns=[f"F{i}" for i in range(1, 1 + 28)])
+    # create index
+    from m5.feature import item_id
+    df.insert(0, "id", item_id())
+    # write to file
     step = tf.summary.experimental.get_step()
-    return (step % evaluation_period) == 0
+    df.to_csv(f"data/{dir}/output_on_step{step}.csv", index=False)
 
 
 def train_loop():
