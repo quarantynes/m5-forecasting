@@ -264,11 +264,14 @@ def train_loop():
                 tf.summary.scalar(f"{model.name}_batch_loss",
                                   tf.reduce_mean(batch_loss))
 
-            # Evaluate: record on loss on tensorboard and write predictions for
-            # evaluation period in csv format
-            H, loss = evaluate(model) tf.summary.scalar(f"{model.name}_eval_loss",
-            tf.reduce_mean(loss)) write_output(H, "evaluation") print("finish
-            train_loop") return
+        # Evaluate: record loss on tensorboard and write predictions for
+        # evaluation period in csv format
+        H, loss = evaluate(model)
+        tf.summary.scalar(f"{model.name}_eval_loss", tf.reduce_mean(loss))
+        write_output(H, "evaluation")
+
+    print("finish train_loop")
+    return
 
 
 if __name__ == 'main':
