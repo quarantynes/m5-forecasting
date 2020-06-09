@@ -199,39 +199,51 @@ def train_batch(model, X, Y, w):
     return loss
 
 
-def evaluate(model, eval_slice=slice(-28, None)):
+def evaluate(model):
+    print("Entering in evaluate function.")
     loss_list = []
     Hlist = []
     for (X, Y, w) in (batch_generator(mode='evaluation', batch_size=None)):
         H = model(X)
-        H = H[:, eval_slice]
-        Y = Y[:, eval_slice]
         loss_i = tf.losses.mean_squared_error(Y, H)
         loss_i = loss_i**0.5
         loss_i = loss_i * w
+        # next, insert dummy dimension to prepare concatenation
+        loss_i = tf.expand_dims(loss_i,axis=-1)
         loss_list.append(loss_i)
         Hlist.append(H)
-    loss = tf.concat(loss_list, axis=0)
-    H = tf.concat(Hlist, axis=0)
+    loss = tf.concat(loss_list, axis=1)
+    H = tf.concat(Hlist, axis=1)
     return H, loss
 
 
+def submit(model):
+    #TODO: finishe submit()
+    raise NotImplementedError
+    Hlist = []
+    for (X, _, w) in (batch_generator(mode='submission', batch_size=None)):
+        H = model(X)
+        Hlist.append(H)
+    H = tf.concat(Hlist, axis=0)
+    return H
+
+
 def evaluate_now(evaluation_period=100) -> bool:
+    """
+    This method should be used to set evaluation independently of the epoch. It
+    returns True if the current iteration is a multiple of evaluation_period.
+    """
     step = tf.summary.experimental.get_step()
     return (step % evaluation_period) == 0
 
 
-if __name__ == 'main':
-    # Training Loop
-    optimizer = tf.keras.optimizers.Adam(learning_rate=1e-3)
-
+def train_loop():
     with tf.summary.create_file_writer(logdir).as_default():
         for epoch in range(nb_epochs):
             print(f"Epoch: {epoch}")
 
             for (X, Y, w) in tqdm(
-                    batch_generator(mode='train', batch_size=batch_size)
-            ):
+                    batch_generator(mode='train', batch_size=batch_size)):
                 if increment_step() % steps_per_epoch == 0:
                     # need break here because the generator is infinite
                     break
@@ -240,11 +252,16 @@ if __name__ == 'main':
                 tf.summary.scalar(f"{model.name}_batch_loss",
                                   tf.reduce_mean(batch_loss))
 
-                if evaluate_now():
-                    H, loss = evaluate(model)
-                    tf.summary.scalar(f"{model.name}_eval_loss",
-                                      tf.reduce_mean(loss))
-                    write_output(H, "evaluation")
+            # Evaluate: record on loss on tensorboard and write predictions for
+            # evaluation period in csv format
+            H, loss = evaluate(model) tf.summary.scalar(f"{model.name}_eval_loss",
+            tf.reduce_mean(loss)) write_output(H, "evaluation") print("finish
+            train_loop") return
+
+
+if __name__ == 'main':
+    # Training Loop
+    train_loop()
 
     # Save Model
     # TODO: save model here and implement prediction/submission
