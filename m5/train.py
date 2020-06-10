@@ -83,23 +83,24 @@ def batch_generator(mode, batch_size):
     When samples are ordered, each batch corresponds to the ordered days of a
     unique item, which respects the natural order needed to write the final csv.
     """
-    if mode == 'train':
+    if mode == "train":
         while True:
             from numpy.random import randint
+
             days_index = randint(training_days, size=batch_size)
             items_index = randint(nb_items, size=batch_size)
             yield make_batch(items_index, days_index)
-    elif mode == 'evaluation':
+    elif mode == "evaluation":
+        # TODO: return bigger batchs to solve performance issue
         for item_i in range(nb_items):
             days_index = list(range(*evaluation_range))
-            items_index = item_i
-            yield make_batch(items_i, days_index)
-    elif mode == 'submission':
+            items_index = [item_i] * len(days_index)
+            yield make_batch(items_index, days_index)
+    elif mode == "submission":
         for item_i in range(nb_items):
             days_index = list(range(*submission_range))
-            items_index = item_i
-            yield make_batch(items_i, days_index)
-
+            items_index = [item_i] * len(days_index)
+            yield make_batch(items_index, days_index)
 
 
 # TODO: make model for new batch loader
@@ -201,32 +202,32 @@ def evaluate(model):
     loss: is a TF scalar. The mean of the loss over all evaluation points is
     computed inside this function.
     """
-    print("Entering in evaluate function.")
+    print("\tEntering in evaluate function.")
     loss_list = []
     Hlist = []
-    for (X, Y, w) in (batch_generator(mode='evaluation', batch_size=None)):
+    for (X, Y, w) in batch_generator(mode="evaluation", batch_size=None):
         H = model(X)
         loss_i = tf.losses.mean_squared_error(Y, H)
-        loss_i = loss_i**0.5
+        loss_i = loss_i ** 0.5
         loss_i = loss_i * w
         loss_list.append(tf.reduce_mean(loss_i))
         # next, insert dummy dimension to prepare concatenation
-        H = tf.expand_dims(H,axis=-1)
+        H = tf.squeeze(H)
+        H = tf.expand_dims(H, axis=0)
         Hlist.append(H)
-    loss = tf.concat(loss_list, axis=1)
     loss = tf.reduce_mean(loss)
     H = tf.concat(Hlist, axis=1)
-    assert H.shape == (30490,28)
+    assert H.shape == (30490, 28)
     assert loss.shape == (1,)
     # TODO: teste this function
     return H, loss
 
 
 def submit(model):
-    #TODO: finishe submit()
+    # TODO: finishe submit()
     raise NotImplementedError
     Hlist = []
-    for (X, _, w) in (batch_generator(mode='submission', batch_size=None)):
+    for (X, _, w) in batch_generator(mode="submission", batch_size=None):
         H = model(X)
         Hlist.append(H)
     H = tf.concat(Hlist, axis=0)
@@ -265,17 +266,16 @@ def train_loop():
                 tf.summary.scalar(f"{model.name}_batch_loss",
                                   tf.reduce_mean(batch_loss))
 
-        # Evaluate: record loss on tensorboard and write predictions for
-        # evaluation period in csv format
-        H, loss = evaluate(model)
-        tf.summary.scalar(f"{model.name}_eval_loss", tf.reduce_mean(loss))
-        write_output(H, "evaluation")
+            # Evaluate: record loss on tensorboard and write predictions for
+            # evaluation period in csv format
+            H, loss = evaluate(model)
+            tf.summary.scalar(f"{model.name}_eval_loss", tf.reduce_mean(loss))
+            write_output(H, "evaluation")
 
     print("finish train_loop")
     return
-
-
-if __name__ == 'main':
+train_loop()
+if __name__ == "main":
     # Training Loop
     train_loop()
 
