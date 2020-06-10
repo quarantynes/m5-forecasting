@@ -210,13 +210,11 @@ def evaluate(model):
         H = tf.squeeze(H)
         H = tf.expand_dims(H, axis=0)
         Hlist.append(H)
-    loss = tf.reduce_mean(loss)
-    H = tf.concat(Hlist, axis=1)
+    loss = tf.reduce_mean(loss_list)
+    H = tf.concat(Hlist, axis=0)
     assert H.shape == (30490, 28)
-    assert loss.shape == (1,)
-    # TODO: teste this function
+    tf.debugging.assert_scalar(loss)
     return H, loss
-
 
 def submit(model):
     # TODO: finishe submit()
