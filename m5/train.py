@@ -154,6 +154,7 @@ print("testing model with one single batch")
 x, y, w = next(batch_generator(mode="train", batch_size=128))
 model(x)
 model.summary()
+# TODO: implement alternative summary method
 print("model summary may appear incomplete if using subclassed model definition.")
 
 # Training
