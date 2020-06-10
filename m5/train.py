@@ -1,9 +1,16 @@
-from tqdm import tqdm
+import pandas as pd
 import tensorflow as tf
 from tensorflow.keras import layers
-# Env setup
+from tqdm import tqdm
 
-# Training parameters
+from m5.feature import (
+    item_category,
+    item_dept,
+    item_state,
+    reduced_calendar,
+    unit_sales_per_item_over_time,
+    item_weight,
+)
 from m5.params import (
     batch_size,
     logdir,
@@ -13,43 +20,36 @@ from m5.params import (
     submission_range,
     nb_items,
     steps_per_epoch,
-)
+)  # Training parameters
 
-# Data loading
-from m5.feature import (item_category, item_dept, item_state, reduced_calendar,
-                        unit_sales_per_item_over_time, item_weight)
-
-import pandas as pd
+#  cache functions output in module global variables to improve performance
+unit_sales_per_item_over_time = unit_sales_per_item_over_time()
+item_category, _ = item_category()
+item_dept, _ = item_dept()
+reduced_calendar = reduced_calendar()
+# load item_state as pandas series to use look_up function
+# TODO: perform lookup using only numpy
+state_series = pd.Categorical.from_codes(*item_state())
 
 
 def make_batch(items_index, days_index):
     """Computes one batch for given items and days"""
-    feat_item_category, _ = item_category()
-    feat_item_category = feat_item_category.take(items_index)
-
-    feat_item_dept, _ = item_dept()
-    feat_item_dept = feat_item_dept.take(items_index)
-
-    feat_calendar = reduced_calendar()
-    feat_calendar = feat_calendar.take(days_index)
-
-    # load item_state as pandas series
-    state_series = pd.Categorical.from_codes(*item_state())
+    assert len(items_index) == len(days_index)
+    feat_item_category = item_category.take(items_index)
+    feat_item_dept = item_dept.take(items_index)
+    feat_calendar = reduced_calendar.take(days_index)
 
     # split feat_calendar into feat_calendar and snap_df
     # then, rename snap_df columns to match the values in state_series
-    snap_df = feat_calendar[['snap_CA', 'snap_TX', 'snap_WI']]
-    feat_calendar = feat_calendar.drop(
-        columns=['snap_CA', 'snap_TX', 'snap_WI'])
-    snap_df = snap_df.rename(columns={
-        'snap_CA': 'CA',
-        'snap_TX': 'TX',
-        'snap_WI': 'WI'
-    })
+    snap_df = feat_calendar[["snap_CA", "snap_TX", "snap_WI"]]
+    feat_calendar = feat_calendar.drop(columns=["snap_CA", "snap_TX", "snap_WI"])
+    snap_df = snap_df.rename(
+        columns={"snap_CA": "CA", "snap_TX": "TX", "snap_WI": "WI"}
+    )
 
     # remove duplicated items in snap_df
     # note that drop_duplicates applies only to columns
-    snap_df = snap_df.reset_index().drop_duplicates().set_index('index')
+    snap_df = snap_df.reset_index().drop_duplicates().set_index("index")
 
     # bi-dimensional lookup on snap_df to get snap information for
     # given items and given days
@@ -65,7 +65,7 @@ def make_batch(items_index, days_index):
     )
 
     try:
-        target = unit_sales_per_item_over_time()[items_index, days_index]
+        target = unit_sales_per_item_over_time[items_index, days_index]
     except IndexError:
         target = None
 
