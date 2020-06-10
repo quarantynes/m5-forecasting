@@ -156,7 +156,6 @@ model(x)
 model.summary()
 print("model summary may appear incomplete if using subclassed model definition.")
 
-
 # Training
 
 
@@ -254,15 +253,15 @@ def train_loop():
         for epoch in range(nb_epochs):
             print(f"Epoch: {epoch}")
 
-            for (X, Y, w) in tqdm(
-                    batch_generator(mode="train", batch_size=batch_size)):
+            for (X, Y, w) in tqdm(batch_generator(mode="train", batch_size=batch_size)):
                 if increment_step() % steps_per_epoch == 0:
                     # need break here because the generator is infinite
                     break
 
                 batch_loss = train_batch(model, X, Y, w)
-                tf.summary.scalar(f"{model.name}_batch_loss",
-                                  tf.reduce_mean(batch_loss))
+                tf.summary.scalar(
+                    f"{model.name}_batch_loss", tf.reduce_mean(batch_loss)
+                )
 
             # Evaluate: record loss on tensorboard and write predictions for
             # evaluation period in csv format
@@ -272,6 +271,8 @@ def train_loop():
 
     print("finish train_loop")
     return
+
+
 train_loop()
 if __name__ == "main":
     # Training Loop
