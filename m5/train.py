@@ -118,6 +118,7 @@ class StModel(tf.keras.models.Model):
     - day of the week (int)
     - snap in product_id state (boolean)
     """
+
     def __init__(self, dnn_units, **kwargs):
         super().__init__(**kwargs)
         self.dnn_units = dnn_units
@@ -139,22 +140,18 @@ class StModel(tf.keras.models.Model):
         """
         In this model, inputs is a dict. The available features are those returned by make_batch()
         """
-        L = layers.Embedding(7,
-                             self.dnn_units,
-                             input_length=1,
-                             input_shape=[None, 1])(inputs['category'])
+        L = layers.Embedding(7, self.dnn_units, input_length=1, input_shape=[None, 1])(
+            inputs["category"]
+        )
         output = self.DNN(L)
         return output
 
 
 print("building model")
-model = StModel(
-    dnn_units=32,
-    name="StModel",
-)
+model = StModel(dnn_units=32, name="StModel",)
 optimizer = tf.keras.optimizers.Adam(learning_rate=1e-3)
 print("testing model with one single batch")
-x,y,w = next(batch_generator(mode="train",batch_size=128))
+x, y, w = next(batch_generator(mode="train", batch_size=128))
 model(x)
 model.summary()
 print("model summary may appear incomplete if using subclassed model definition.")
@@ -176,12 +173,11 @@ def train_batch(model, X, Y, w):
     with tf.GradientTape() as tape:
         H = model(X)
         loss = tf.losses.mean_squared_error(Y, H)
-        loss = loss**0.5
+        loss = loss ** 0.5
         loss = loss * w
     grads = tape.gradient(loss, model.trainable_weights)
     optimizer.apply_gradients(zip(grads, model.trainable_weights))
     return loss
-
 
 
 def evaluate_now(evaluation_period=100) -> bool:
@@ -238,13 +234,15 @@ def write_output(H, dir="evaluation"):
     """ Writes the TF array H to csv using a pandas DataFrame
     """
     H = H.numpy()
-    assert  H.shape == (30490,28)
+    assert H.shape == (30490, 28)
     # using pandas fo IO
     import pandas as pd
+
     # create columns
     df = pd.DataFrame(H, columns=[f"F{i}" for i in range(1, 1 + 28)])
     # create index
     from m5.feature import item_id
+
     df.insert(0, "id", item_id())
     # write to file
     step = tf.summary.experimental.get_step()
@@ -257,7 +255,7 @@ def train_loop():
             print(f"Epoch: {epoch}")
 
             for (X, Y, w) in tqdm(
-                    batch_generator(mode='train', batch_size=batch_size)):
+                    batch_generator(mode="train", batch_size=batch_size)):
                 if increment_step() % steps_per_epoch == 0:
                     # need break here because the generator is infinite
                     break
