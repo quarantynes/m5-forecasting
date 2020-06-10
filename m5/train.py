@@ -216,6 +216,7 @@ def evaluate(model):
     tf.debugging.assert_scalar(loss)
     return H, loss
 
+
 def submit(model):
     # TODO: finishe submit()
     raise NotImplementedError
@@ -272,11 +273,5 @@ def train_loop():
 
 
 train_loop()
-if __name__ == "main":
-    # Training Loop
-    train_loop()
 
-    # Save Model
-    # TODO: save model here and implement prediction/submission
-    X, Y, w = batch_generator(eval_data=True, batch_size=batch_size)
-    model.save(f"../data/saved_models/{model.name}.tf")
+# TODO: implement save and submission
