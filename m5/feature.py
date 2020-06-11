@@ -121,9 +121,11 @@ def unit_sales_per_item_over_time() -> ItemArray:
 @memory.cache
 def item_weight() -> ItemVector:
     """
-    The weights for each item are computed based on the difference of unit sales in the training data set.
-    This is used in the computation of RMSSE. It should not be confounded with the aggregation weights of WRMSSE.
-    This weight is introduced to make scale indifferent cost across the different time series.
+    The weights for each item are computed based on the difference of
+    unit sales in the training data set.  This is used in the
+    computation of RMSSE. It should not be confounded with the
+    aggregation weights of WRMSSE.  This weight is introduced to make
+    scale indifferent cost across the different time series.
     """
     s = unit_sales_per_item_over_time()
     s = s[:, 0:-28 * 1].astype(np.float32)
@@ -135,9 +137,11 @@ def item_weight() -> ItemVector:
 @memory.cache
 def series_weight(s) -> ItemVector:
     """
-    The weights for each series are computed based on the difference of unit sales in the training data set.
-    This is used in the computation of RMSSE. It should not be confounded with the aggregation weights of WRMSSE.
-    This weight is introduced to make scale indifferent cost across the different time series.
+    The weights for each series are computed based on the difference
+    of unit sales in the training data set.  This is used in the
+    computation of RMSSE. It should not be confounded with the
+    aggregation weights of WRMSSE.  This weight is introduced to make
+    scale indifferent cost across the different time series.
     """
     s = s[:, 0:-28 * 1]
     # item_w = np.sqrt(
@@ -149,8 +153,9 @@ def series_weight(s) -> ItemVector:
 @memory.cache
 def sales_weight() -> ItemVector:
     """
-    These weights are the sum of dollar sales of the last 28 days in the training dataset.
-    They are used in the aggregation coefficients of WRMSSE.
+    These weights are the sum of dollar sales of the last 28 days in
+    the training dataset.  They are used in the aggregation
+    coefficients of WRMSSE.
     """
     s = unit_sales_per_item_over_time()
     p = prices_per_item_over_time()
@@ -159,8 +164,9 @@ def sales_weight() -> ItemVector:
     assert p.shape == s.shape, f"{p.shape} {s.shape}"
     ps = p.astype(np.float32) * s
     w = np.sum(ps, axis=1)
-    # next, we can normalize the weights here instead of normalizing inside WRMSSE, since the every
-    # product appears once and only once in each aggregation
+    # next, we can normalize the weights here instead of normalizing
+    # inside WRMSSE, since the every product appears once and only
+    # once in each aggregation
     w = w / sum(w)
     assert isinstance(w, ItemVector), ItemVector.type_of(w)
     return w
@@ -192,9 +198,12 @@ NB_ITEMS, NB_DAYS = 30490, 1913
 
 
 def compose_aggregation_matrices(A: ItemVector, B: ItemVector) -> ItemVector:
-    """A and B are vectors of indices representing two different aggregations. If A has
-    m different indices and B has n different indices. The aggregation composition will have
-    m*n different indices. The length of A, B and output is the same."""
+    """
+    A and B are vectors of indices representing two different
+    aggregations. If A has m different indices and B has n different
+    indices. The aggregation composition will have m*n different
+    indices. The length of A, B and output is the same.
+    """
     output = np.zeros_like(A)
     nunique_A = len(np.unique(A))
     nunique_B = len(np.unique(B))
@@ -313,6 +322,6 @@ def unit_sales_aggregation() -> Dict[int, MultipleSeries]:
 def reduced_calendar():
     c = pd.read_csv(
         CALENDAR,
-        usecols=['d','wday', 'month', 'year', 'snap_CA', 'snap_TX', 'snap_WI'],
+        usecols=['d', 'wday', 'month', 'year', 'snap_CA', 'snap_TX', 'snap_WI'],
     )
     return c
