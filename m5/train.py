@@ -111,14 +111,12 @@ def batch_generator(mode, batch_size):
             items_index = randint(nb_items, size=size)
             yield make_batch(items_index, days_index)
     elif mode == "evaluation":
-        # TODO: return bigger batchs to solve performance issue
         for index_tuple in index_generator(evaluation_range,batch_size):
             yield make_batch(*index_tuple)
     elif mode == "submission":
         for index_tuple in index_generator(submission_range,batch_size):
             yield make_batch(*index_tuple)
 
-# TODO: make model for new batch loader
 class StModel(tf.keras.models.Model):
     """
     This model predicts the unit sale for a given product_id, in a given day.
@@ -233,7 +231,7 @@ def evaluate(model):
 
 
 def submit(model):
-    # TODO: finishe submit()
+    # TODO: finish submit()
     raise NotImplementedError
     Hlist = []
     for (X, _, w) in batch_generator(mode="submission", batch_size=None):
@@ -290,3 +288,5 @@ def train_loop():
 train_loop()
 
 # TODO: implement save and submission
+# TODO: use external evaluation script from kaggle
+# TODO: register team in both kaggle competitions
