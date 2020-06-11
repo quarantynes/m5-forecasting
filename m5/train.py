@@ -73,6 +73,24 @@ def make_batch(items_index, days_index):
     return features, target, weight
 
 
+def index_generator(days_range,batch_size):
+    """ Generates args for make_batch function so that each call of
+    make_batch returns a batch of given size, and successive calls cover the
+    whole day_range for all items. Samples are ordered in two axis: items and
+    days. In the resulting sequence, equal items are contiguous.
+    """
+    from more_itertools import take
+    full_sequence_items = (items for items in range(nb_items) for _ in range(*days_range))
+    full_sequence_days = (day for _ in range(nb_items) for day in range(*days_range))
+    while True:
+        items_index = take(batch_size,full_sequence_items)
+        days_index = take(batch_size,full_sequence_days)
+        assert len(items_index) == len(days_index)
+        if not items_index:
+            return # end of iteration
+        yield items_index, days_index
+
+
 def batch_generator(mode, batch_size):
     """ This generator returns either random samples from the training set or
     ordered samples from the validation dataset. Each batch is a tuple (x,y,w)
@@ -83,25 +101,22 @@ def batch_generator(mode, batch_size):
     When samples are ordered, each batch corresponds to the ordered days of a
     unique item, which respects the natural order needed to write the final csv.
     """
+
     if mode == "train":
         while True:
             from numpy.random import randint
-
-            days_index = randint(training_days, size=batch_size)
-            items_index = randint(nb_items, size=batch_size)
+            # set size so that the size of batch approximates batch_size
+            size = int(batch_size**0.5)
+            days_index = randint(training_days, size=size)
+            items_index = randint(nb_items, size=size)
             yield make_batch(items_index, days_index)
     elif mode == "evaluation":
         # TODO: return bigger batchs to solve performance issue
-        for item_i in range(nb_items):
-            days_index = list(range(*evaluation_range))
-            items_index = [item_i] * len(days_index)
-            yield make_batch(items_index, days_index)
+        for index_tuple in index_generator(evaluation_range,batch_size):
+            yield make_batch(*index_tuple)
     elif mode == "submission":
-        for item_i in range(nb_items):
-            days_index = list(range(*submission_range))
-            items_index = [item_i] * len(days_index)
-            yield make_batch(items_index, days_index)
-
+        for index_tuple in index_generator(submission_range,batch_size):
+            yield make_batch(*index_tuple)
 
 # TODO: make model for new batch loader
 class StModel(tf.keras.models.Model):
@@ -201,20 +216,19 @@ def evaluate(model):
     print("\tEntering in evaluate function.")
     loss_list = []
     Hlist = []
-    for (X, Y, w) in batch_generator(mode="evaluation", batch_size=None):
+    for (X, Y, w) in batch_generator(mode="evaluation", batch_size=30490*28):
         H = model(X)
-        loss_i = tf.losses.mean_squared_error(Y, H)
+        H = tf.squeeze(H)
+        loss_i = tf.math.squared_difference(Y, H)
         loss_i = loss_i ** 0.5
         loss_i = loss_i * w
         loss_list.append(tf.reduce_mean(loss_i))
-        # next, insert dummy dimension to prepare concatenation
-        H = tf.squeeze(H)
-        H = tf.expand_dims(H, axis=0)
         Hlist.append(H)
     loss = tf.reduce_mean(loss_list)
-    H = tf.concat(Hlist, axis=0)
-    assert H.shape == (30490, 28)
     tf.debugging.assert_scalar(loss)
+    H = tf.concat(Hlist, axis=0)
+    assert H.shape == (30490 * 28,)
+    H = tf.reshape(H, (30490,28))
     return H, loss
 
 
