@@ -73,7 +73,7 @@ def make_batch(items_index, days_index):
     return features, target, weight
 
 
-def index_generator(days_range,batch_size):
+def index_generator(days_range, batch_size):
     """ Generates args for make_batch function so that each call of
     make_batch returns a batch of given size, and successive calls cover the
     whole day_range for all items. Samples are ordered in two axis: items and
@@ -83,23 +83,26 @@ def index_generator(days_range,batch_size):
     full_sequence_items = (items for items in range(nb_items) for _ in range(*days_range))
     full_sequence_days = (day for _ in range(nb_items) for day in range(*days_range))
     while True:
-        items_index = take(batch_size,full_sequence_items)
-        days_index = take(batch_size,full_sequence_days)
+        items_index = take(batch_size, full_sequence_items)
+        days_index = take(batch_size, full_sequence_days)
         assert len(items_index) == len(days_index)
         if not items_index:
-            return # end of iteration
+            return  # end of iteration
         yield items_index, days_index
 
 
 def batch_generator(mode, batch_size):
-    """ This generator returns either random samples from the training set or
-    ordered samples from the validation dataset. Each batch is a tuple (x,y,w)
-    If mode is:
+    """ This generator returns either random samples from the training
+    set or ordered samples from the validation dataset. Each batch is
+    a tuple (x,y,w) If mode is:
       - 'train', it generates random samples from the training set.
-      - 'evaluation', it generates ordered samples from the validation set.
-      - 'submission', it generates ordered samples from the submission set.
-    When samples are ordered, each batch corresponds to the ordered days of a
-    unique item, which respects the natural order needed to write the final csv.
+      - 'evaluation', it generates ordered samples from the validation
+        set.
+      - 'submission', it generates ordered samples from the submission
+        set.
+    When samples are ordered, each batch corresponds to the ordered
+    days of a unique item, which respects the natural order needed to
+    write the final csv.
     """
 
     if mode == "train":
@@ -111,20 +114,23 @@ def batch_generator(mode, batch_size):
             items_index = randint(nb_items, size=size)
             yield make_batch(items_index, days_index)
     elif mode == "evaluation":
-        for index_tuple in index_generator(evaluation_range,batch_size):
+        for index_tuple in index_generator(evaluation_range, batch_size):
             yield make_batch(*index_tuple)
     elif mode == "submission":
-        for index_tuple in index_generator(submission_range,batch_size):
+        for index_tuple in index_generator(submission_range, batch_size):
             yield make_batch(*index_tuple)
+
 
 class StModel(tf.keras.models.Model):
     """
-    This model predicts the unit sale for a given product_id, in a given day.
-    There are 30490 different product_id while the time span in this dataset
-    cover almost 2000 days.
-    When submitting the prediction, this model should be evaluated 28 times for
-    each product_id, one for each day in the submission range.
-    The inputs of this model are:
+    This model predicts the unit sale for a given product_id, in a
+    given day.  There are 30490 different product_id while the time
+    span in this dataset cover almost 2000 days.
+
+    When submitting the prediction, this model should be evaluated 28
+    times for each product_id, one for each day in the submission
+    range.  The inputs of this model are:
+
     - product category (categorical)
     - product department (categorical)
     - week of the year (int)
@@ -151,7 +157,8 @@ class StModel(tf.keras.models.Model):
 
     def call(self, inputs, training=None, mask=None):
         """
-        In this model, inputs is a dict. The available features are those returned by make_batch()
+        In this model, inputs is a dict. The available features are those
+        returned by make_batch()
         """
         L = layers.Embedding(7, self.dnn_units, input_length=1, input_shape=[None, 1])(
             inputs["category"]
@@ -226,7 +233,7 @@ def evaluate(model):
     tf.debugging.assert_scalar(loss)
     H = tf.concat(Hlist, axis=0)
     assert H.shape == (30490 * 28,)
-    H = tf.reshape(H, (30490,28))
+    H = tf.reshape(H, (30490, 28))
     return H, loss
 
 
