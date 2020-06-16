@@ -341,7 +341,6 @@ def train_loop():
                     break
 
                 batch_loss = train_batch(model, X, Y, w)
-                # print(tf.reduce_mean(batch_loss).numpy())
                 # tf.summary.scalar(
                 #     f"{model.name}_batch_loss", tf.reduce_mean(batch_loss)
                 # )
@@ -350,7 +349,7 @@ def train_loop():
             # evaluation period in csv format
             H, loss = evaluate(model)
             tf.summary.scalar(f"{model.name}_eval_loss", tf.reduce_mean(loss))
-            write_output(H, "evaluation")
+            # write_output(H, "evaluation")
             print(f"loss: {loss}")
 
     print("finish train_loop")
