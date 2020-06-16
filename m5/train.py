@@ -10,7 +10,10 @@ from m5.feature import (
     reduced_calendar,
     unit_sales_per_item_over_time,
     item_weight,
+    item_kind,
 )
+
+
 from m5.params import (
     batch_size,
     logdir,
@@ -26,17 +29,27 @@ from m5.params import (
 unit_sales_per_item_over_time = unit_sales_per_item_over_time()
 item_category, _ = item_category()
 item_dept, _ = item_dept()
+item_kind, _ = item_kind()
 reduced_calendar = reduced_calendar()
 # load item_state as pandas series to use look_up function
 # TODO: perform lookup using only numpy
 state_series = pd.Categorical.from_codes(*item_state())
 
-
 def make_batch(items_index, days_index):
-    """Computes one batch for given items and days"""
+    """Computes one batch for given items and days.
+    Supported Features:
+        category : categorical #3
+        dept     : categorical #7
+        kind     : categorical #3049
+        weekday  : int 0..6
+        month    : int 0..11
+        year     : int ?
+        snap     : boolean
+    """
     assert len(items_index) == len(days_index)
     feat_item_category = item_category.take(items_index)
     feat_item_dept = item_dept.take(items_index)
+    feat_item_kind = item_kind.take(items_index)
     feat_calendar = reduced_calendar.take(days_index)
 
     # split feat_calendar into feat_calendar and snap_df
@@ -58,6 +71,7 @@ def make_batch(items_index, days_index):
     features = dict(
         category=feat_item_category,
         dept=feat_item_dept,
+        kind=feat_item_kind,
         weekday=feat_calendar.wday.values,
         month=feat_calendar.month.values,
         year=feat_calendar.year.values,
