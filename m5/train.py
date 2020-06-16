@@ -143,41 +143,60 @@ class StModel(tf.keras.models.Model):
 
     When submitting the prediction, this model should be evaluated 28
     times for each product_id, one for each day in the submission
-    range.  The inputs of this model are:
-
-    - product category (categorical)
-    - product department (categorical)
-    - week of the year (int)
-    - day of the week (int)
-    - snap in product_id state (boolean)
+    range. The inputs of this model are defined in function make_batch
     """
 
     def __init__(self, dnn_units, **kwargs):
         super().__init__(**kwargs)
         self.dnn_units = dnn_units
+        self.emb_category = layers.Embedding(
+            input_dim= 3,
+            output_dim= 2,
+            input_length= 1,
+        )
+        self.emb_dept = layers.Embedding(
+            input_dim= 7,
+            output_dim= 3,
+            input_length= 1,
+        )
+        self.emb_kind = layers.Embedding(
+            input_dim= 3049,
+            output_dim= 30,
+            input_length= 1,
+        )
+        self.all_together= layers.Concatenate()
         self.DNN = tf.keras.Sequential(
             [
-                # layers.Dense(units=dnn_units,
-                #              activation=tf.keras.activations.relu),
-                # layers.Dense(units=dnn_units // 2,
-                #              activation=tf.keras.activations.relu),
-                # layers.Dense(units=dnn_units // 4,
-                #              activation=tf.keras.activations.relu),
+                layers.Dense(units=dnn_units,
+                             activation=tf.keras.activations.relu),
+                layers.Dense(units=dnn_units // 2,
+                             activation=tf.keras.activations.relu),
+                layers.Dense(units=dnn_units // 4,
+                             activation=tf.keras.activations.relu),
                 layers.Dense(1),
             ],
-            name="DNN",
         )
-        # self.mydense = layers.Dense(1)
 
     def call(self, inputs, training=None, mask=None):
         """
         In this model, inputs is a dict. The available features are those
-        returned by make_batch()
+        returned by function make_batch (check its docstring).
         """
-        L = layers.Embedding(7, self.dnn_units, input_length=1, input_shape=[None, 1])(
-            inputs["category"]
-        )
-        output = self.DNN(L)
+        # make_batch
+        category = self.emb_category(inputs['category'])
+        dept = self.emb_dept(inputs['category'])
+        kind = self.emb_kind(inputs['kind'])
+        all_together = self.all_together([
+            category,
+            dept,
+            kind,
+            inputs['weekday'],
+            inputs['month'],
+            inputs['year'],
+            inputs['snap'],
+        ])
+
+        output = self.DNN(all_together)
         return output
 
 
