@@ -123,7 +123,7 @@ def batch_generator(mode, batch_size):
         while True:
             from numpy.random import randint
             # set size so that the size of batch approximates batch_size
-            size = int(batch_size**0.5)
+            size = int(batch_size)
             days_index = randint(training_days, size=size)
             items_index = randint(nb_items, size=size)
             yield make_batch(items_index, days_index)
@@ -199,7 +199,7 @@ class StModel(tf.keras.models.Model):
                 #              activation=tf.keras.activations.relu),
                 # layers.Dense(units=dnn_units // 4,
                 #              activation=tf.keras.activations.relu),
-                layers.Dense(1),
+                layers.Dense(1,activation=tf.keras.activations.relu),
             ],
             name='DNN',
         )

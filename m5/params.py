@@ -7,11 +7,11 @@ gru_size = 10
 batch_size = 1024
 days = 1913
 logdir = os.path.expanduser("~/tf_log")
-nb_epochs = 2
+nb_epochs = 10
 evaluation_period = 100
 
 training_days = days - 28
 evaluation_range = (training_days, training_days+28)
 submission_range = (training_days+28, training_days+56)
 
-steps_per_epoch = 500
+steps_per_epoch = 5000
