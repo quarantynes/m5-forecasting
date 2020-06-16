@@ -195,12 +195,13 @@ class StModel(tf.keras.models.Model):
             [
                 layers.Dense(units=dnn_units,
                              activation=tf.keras.activations.relu),
-                layers.Dense(units=dnn_units // 2,
-                             activation=tf.keras.activations.relu),
-                layers.Dense(units=dnn_units // 4,
-                             activation=tf.keras.activations.relu),
+                # layers.Dense(units=dnn_units // 2,
+                #              activation=tf.keras.activations.relu),
+                # layers.Dense(units=dnn_units // 4,
+                #              activation=tf.keras.activations.relu),
                 layers.Dense(1),
             ],
+            name='DNN',
         )
 
     def call(self, inputs, training=None, mask=None):
@@ -230,7 +231,7 @@ class StModel(tf.keras.models.Model):
         return output
 
 print("building model")
-model = StModel(dnn_units=32, name="StModel",)
+model = StModel(dnn_units=512, name="StModel",)
 optimizer = tf.keras.optimizers.Adam(learning_rate=1e-3)
 print("testing model with one single batch")
 x, y, w = next(batch_generator(mode="train", batch_size=128))
@@ -251,6 +252,7 @@ def increment_step():
     return tf.summary.experimental.get_step()
 
 
+@tf.function
 def train_batch(model, X, Y, w):
     with tf.GradientTape() as tape:
         H = model(X)
