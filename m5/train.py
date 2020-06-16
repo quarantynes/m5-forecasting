@@ -272,7 +272,6 @@ def evaluate_now(evaluation_period=100) -> bool:
     step = tf.summary.experimental.get_step()
     return (step % evaluation_period) == 0
 
-
 def evaluate(model):
     """ Computes the prediction H and the loss for the whole evaluation range.
     Returns:
@@ -342,9 +341,10 @@ def train_loop():
                     break
 
                 batch_loss = train_batch(model, X, Y, w)
-                tf.summary.scalar(
-                    f"{model.name}_batch_loss", tf.reduce_mean(batch_loss)
-                )
+                # print(tf.reduce_mean(batch_loss).numpy())
+                # tf.summary.scalar(
+                #     f"{model.name}_batch_loss", tf.reduce_mean(batch_loss)
+                # )
 
             # Evaluate: record loss on tensorboard and write predictions for
             # evaluation period in csv format
