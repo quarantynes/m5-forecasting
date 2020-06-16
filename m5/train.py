@@ -320,6 +320,7 @@ def train_loop():
             H, loss = evaluate(model)
             tf.summary.scalar(f"{model.name}_eval_loss", tf.reduce_mean(loss))
             write_output(H, "evaluation")
+            print(f"loss: {loss}")
 
     print("finish train_loop")
     return
