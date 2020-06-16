@@ -149,22 +149,48 @@ class StModel(tf.keras.models.Model):
     def __init__(self, dnn_units, **kwargs):
         super().__init__(**kwargs)
         self.dnn_units = dnn_units
-        self.emb_category = layers.Embedding(
+        self.category = layers.Embedding(
             input_dim= 3,
             output_dim= 2,
             input_length= 1,
+            name= 'category',
         )
-        self.emb_dept = layers.Embedding(
+        self.dept = layers.Embedding(
             input_dim= 7,
             output_dim= 3,
             input_length= 1,
+            name= 'dept',
         )
-        self.emb_kind = layers.Embedding(
+        self.kind = layers.Embedding(
             input_dim= 3049,
             output_dim= 30,
             input_length= 1,
+            name= 'kind',
         )
-        self.all_together= layers.Concatenate()
+        self.weekday = layers.Embedding(
+            input_dim= 8,
+            output_dim= 1,
+            input_length= 1,
+            name= 'weekday',
+        )
+        self.month = layers.Embedding(
+            input_dim= 13,
+            output_dim= 1,
+            input_length= 1,
+            name= 'month',
+        )
+        # self.year = layers.Embedding(
+        #     input_dim= 8,
+        #     output_dim= 3,
+        #     input_length= 1,
+        # )
+        self.snap = layers.Embedding(
+            input_dim= 2,
+            output_dim= 2,
+            input_length= 1,
+            name = 'snap',
+        )
+        self.all_together= layers.Concatenate(axis=1) # axis=1 because axis 0 is batch dimension
         self.DNN = tf.keras.Sequential(
             [
                 layers.Dense(units=dnn_units,
@@ -183,22 +209,25 @@ class StModel(tf.keras.models.Model):
         returned by function make_batch (check its docstring).
         """
         # make_batch
-        category = self.emb_category(inputs['category'])
-        dept = self.emb_dept(inputs['category'])
-        kind = self.emb_kind(inputs['kind'])
+        category = self.category(inputs['category'])
+        dept = self.dept(inputs['category'])
+        kind = self.kind(inputs['kind'])
+        weekday = self.weekday(inputs['weekday'])
+        month = self.month(inputs['month'])
+        snap = self.snap(inputs['snap'])
+        # year = self.year(inputs['year'])
         all_together = self.all_together([
             category,
             dept,
             kind,
-            inputs['weekday'],
-            inputs['month'],
-            inputs['year'],
-            inputs['snap'],
+            weekday,
+            month,
+            # year,
+            snap,
         ])
 
         output = self.DNN(all_together)
         return output
-
 
 print("building model")
 model = StModel(dnn_units=32, name="StModel",)
