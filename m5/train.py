@@ -278,10 +278,10 @@ def evaluate(model):
     for (X, Y, w) in batch_generator(mode="evaluation", batch_size=30490 * 28):
         H = model(X)
         H = tf.squeeze(H)
-        loss_i = tf.math.squared_difference(Y, H)
+        loss_i = tf.losses.mean_squared_error(Y, H)
         loss_i = loss_i ** 0.5
         loss_i = loss_i * w
-        loss_list.append(tf.reduce_mean(loss_i))
+        loss_list.append(tf.reduce_sum(loss_i))
         Hlist.append(H)
     loss = tf.reduce_mean(loss_list)
     tf.debugging.assert_scalar(loss)
