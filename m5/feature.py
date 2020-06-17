@@ -108,22 +108,6 @@ def unit_sales_per_item_over_time() -> ItemArray:
 
 
 @memory.cache
-def item_weight() -> ItemVector:
-    """
-    The weights for each item are computed based on the difference of
-    unit sales in the training data set.  This is used in the
-    computation of RMSSE. It should not be confounded with the
-    aggregation weights of WRMSSE.  This weight is introduced to make
-    scale indifferent cost across the different time series.
-    """
-    s = unit_sales_per_item_over_time()
-    s = s[:, 0 : -28 * 1].astype(np.float32)
-    item_w = np.sqrt(np.mean(np.diff(s, axis=1) ** 2, axis=1))
-    assert isinstance(item_w, ItemVector), ItemVector.type_of(item_w)
-    return item_w
-
-
-@memory.cache
 def sales_weight() -> ItemVector:
     """
     These weights are the sum of dollar sales of the last 28 days in
@@ -143,6 +127,31 @@ def sales_weight() -> ItemVector:
     w = w / sum(w)
     assert isinstance(w, ItemVector), ItemVector.type_of(w)
     return w
+
+
+@memory.cache
+def item_scale() -> ItemVector:
+    """
+    The scale for each item is computed based on the difference of
+    unit sales in the training data set. This is used as a denominator to
+    compute the final weights.
+    """
+    s = unit_sales_per_item_over_time()
+    s = s[:, 0 : -28 * 1].astype(np.float32)
+    item_w = np.sqrt(np.mean(np.diff(s, axis=1) ** 2, axis=1))
+    assert isinstance(item_w, ItemVector), ItemVector.type_of(item_w)
+    return item_w
+
+
+@memory.cache
+def item_weight() -> ItemVector:
+    """
+    The weights for each item are computed using sales_weight/item-scale. This
+    function computes the weights for the 30490 items and so can be used in a
+    standard training loop. To compute the weights for the extended group of
+    series, considering all aggregations, we need another function.
+    """
+    return sales_weight() / item_scale()
 
 
 import tensorflow as tf
