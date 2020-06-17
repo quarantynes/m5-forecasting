@@ -350,6 +350,5 @@ def train_model():
 
 train_model()
 submit(model)
-# TODO: implement save and submission
-# TODO: use external evaluation script from kaggle
-# TODO: register team in both kaggle competitions
+# TODO predictions are all too close to the mean value. fix model
+# TODO loss evaluated by our model is about 5x higher than loss evaluated at kaggle
