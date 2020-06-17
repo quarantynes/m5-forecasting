@@ -291,18 +291,7 @@ def evaluate(model):
     return H, loss
 
 
-def submit(model):
-    # TODO: finish submit()
-    raise NotImplementedError
-    Hlist = []
-    for (X, _, w) in batch_generator(mode="submission", batch_size=None):
-        H = model(X)
-        Hlist.append(H)
-    H = tf.concat(Hlist, axis=0)
-    return H
-
-
-def write_output(H, dir="evaluation"):
+def write_output(H, mode="evaluation"):
     """ Writes the TF array H to csv using a pandas DataFrame
     """
     H = H.numpy()
@@ -318,10 +307,23 @@ def write_output(H, dir="evaluation"):
     df.insert(0, "id", item_id())
     # write to file
     step = tf.summary.experimental.get_step()
-    df.to_csv(f"data/{dir}/output_on_step{step}.csv", index=False)
+    df.to_csv(f"data/{mode}/output_on_step{step}.csv", index=False)
 
 
-def train_loop():
+def submit(model):
+    print("writing submission file")
+    Hlist = []
+    for (X, _, w) in batch_generator(mode="submission", batch_size=30490 * 28):
+        H = model(X)
+        H = tf.squeeze(H)
+        Hlist.append(H)
+    H = tf.concat(Hlist, axis=0)
+    assert H.shape == (30490 * 28,)
+    H = tf.reshape(H, (30490, 28))
+    write_output(H, mode="submission")
+
+
+def train_model():
     with tf.summary.create_file_writer(logdir).as_default():
         for epoch in range(nb_epochs):
             print(f"Epoch: {epoch}")
@@ -343,12 +345,11 @@ def train_loop():
             # write_output(H, "evaluation")
             print(f"loss: {loss}")
 
-    print("finish train_loop")
-    return
+    print("finish train_model")
 
 
-train_loop()
-
+train_model()
+submit(model)
 # TODO: implement save and submission
 # TODO: use external evaluation script from kaggle
 # TODO: register team in both kaggle competitions
