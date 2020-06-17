@@ -128,25 +128,9 @@ def item_weight() -> ItemVector:
     scale indifferent cost across the different time series.
     """
     s = unit_sales_per_item_over_time()
-    s = s[:, 0:-28 * 1].astype(np.float32)
-    item_w = np.sqrt(np.mean(np.diff(s, axis=1)**2, axis=1))
+    s = s[:, 0 : -28 * 1].astype(np.float32)
+    item_w = np.sqrt(np.mean(np.diff(s, axis=1) ** 2, axis=1))
     assert isinstance(item_w, ItemVector), ItemVector.type_of(item_w)
-    return item_w
-
-
-@memory.cache
-def series_weight(s) -> ItemVector:
-    """
-    The weights for each series are computed based on the difference
-    of unit sales in the training data set.  This is used in the
-    computation of RMSSE. It should not be confounded with the
-    aggregation weights of WRMSSE.  This weight is introduced to make
-    scale indifferent cost across the different time series.
-    """
-    s = s[:, 0:-28 * 1]
-    # item_w = np.sqrt(
-    item_w = np.mean(np.diff(s, axis=1)**2, axis=1)
-    # )
     return item_w
 
 
