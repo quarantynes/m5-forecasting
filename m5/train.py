@@ -35,6 +35,7 @@ reduced_calendar = reduced_calendar()
 # TODO: perform lookup using only numpy
 state_series = pd.Categorical.from_codes(*item_state())
 
+
 def make_batch(items_index, days_index):
     """Computes one batch for given items and days.
     Supported Features:
@@ -94,7 +95,10 @@ def index_generator(days_range, batch_size):
     days. In the resulting sequence, equal items are contiguous.
     """
     from more_itertools import take
-    full_sequence_items = (items for items in range(nb_items) for _ in range(*days_range))
+
+    full_sequence_items = (
+        items for items in range(nb_items) for _ in range(*days_range)
+    )
     full_sequence_days = (day for _ in range(nb_items) for day in range(*days_range))
     while True:
         items_index = take(batch_size, full_sequence_items)
@@ -118,10 +122,10 @@ def batch_generator(mode, batch_size):
     days of a unique item, which respects the natural order needed to
     write the final csv.
     """
-
     if mode == "train":
         while True:
             from numpy.random import randint
+
             # set size so that the size of batch approximates batch_size
             size = int(batch_size)
             days_index = randint(training_days, size=size)
@@ -150,34 +154,19 @@ class StModel(tf.keras.models.Model):
         super().__init__(**kwargs)
         self.dnn_units = dnn_units
         self.category = layers.Embedding(
-            input_dim= 3,
-            output_dim= 2,
-            input_length= 1,
-            name= 'category',
+            input_dim=3, output_dim=2, input_length=1, name="category",
         )
         self.dept = layers.Embedding(
-            input_dim= 7,
-            output_dim= 3,
-            input_length= 1,
-            name= 'dept',
+            input_dim=7, output_dim=3, input_length=1, name="dept",
         )
         self.kind = layers.Embedding(
-            input_dim= 3049,
-            output_dim= 30,
-            input_length= 1,
-            name= 'kind',
+            input_dim=3049, output_dim=30, input_length=1, name="kind",
         )
         self.weekday = layers.Embedding(
-            input_dim= 8,
-            output_dim= 1,
-            input_length= 1,
-            name= 'weekday',
+            input_dim=8, output_dim=1, input_length=1, name="weekday",
         )
         self.month = layers.Embedding(
-            input_dim= 13,
-            output_dim= 1,
-            input_length= 1,
-            name= 'month',
+            input_dim=13, output_dim=1, input_length=1, name="month",
         )
         # self.year = layers.Embedding(
         #     input_dim= 8,
@@ -185,23 +174,21 @@ class StModel(tf.keras.models.Model):
         #     input_length= 1,
         # )
         self.snap = layers.Embedding(
-            input_dim= 2,
-            output_dim= 2,
-            input_length= 1,
-            name = 'snap',
+            input_dim=2, output_dim=2, input_length=1, name="snap",
         )
-        self.all_together= layers.Concatenate(axis=1) # axis=1 because axis 0 is batch dimension
+        self.all_together = layers.Concatenate(
+            axis=1
+        )  # axis=1 because axis 0 is batch dimension
         self.DNN = tf.keras.Sequential(
             [
-                layers.Dense(units=dnn_units,
-                             activation=tf.keras.activations.relu),
+                layers.Dense(units=dnn_units, activation=tf.keras.activations.relu),
                 # layers.Dense(units=dnn_units // 2,
                 #              activation=tf.keras.activations.relu),
                 # layers.Dense(units=dnn_units // 4,
                 #              activation=tf.keras.activations.relu),
-                layers.Dense(1,activation=tf.keras.activations.relu),
+                layers.Dense(1, activation=tf.keras.activations.relu),
             ],
-            name='DNN',
+            name="DNN",
         )
 
     def call(self, inputs, training=None, mask=None):
@@ -210,25 +197,28 @@ class StModel(tf.keras.models.Model):
         returned by function make_batch (check its docstring).
         """
         # make_batch
-        category = self.category(inputs['category'])
-        dept = self.dept(inputs['category'])
-        kind = self.kind(inputs['kind'])
-        weekday = self.weekday(inputs['weekday'])
-        month = self.month(inputs['month'])
-        snap = self.snap(inputs['snap'])
+        category = self.category(inputs["category"])
+        dept = self.dept(inputs["category"])
+        kind = self.kind(inputs["kind"])
+        weekday = self.weekday(inputs["weekday"])
+        month = self.month(inputs["month"])
+        snap = self.snap(inputs["snap"])
         # year = self.year(inputs['year'])
-        all_together = self.all_together([
-            category,
-            dept,
-            kind,
-            weekday,
-            month,
-            # year,
-            snap,
-        ])
+        all_together = self.all_together(
+            [
+                category,
+                dept,
+                kind,
+                weekday,
+                month,
+                # year,
+                snap,
+            ]
+        )
 
         output = self.DNN(all_together)
         return output
+
 
 print("building model")
 model = StModel(dnn_units=512, name="StModel",)
@@ -272,6 +262,7 @@ def evaluate_now(evaluation_period=100) -> bool:
     step = tf.summary.experimental.get_step()
     return (step % evaluation_period) == 0
 
+
 def evaluate(model):
     """ Computes the prediction H and the loss for the whole evaluation range.
     Returns:
@@ -284,7 +275,7 @@ def evaluate(model):
     print("\tEntering in evaluate function.")
     loss_list = []
     Hlist = []
-    for (X, Y, w) in batch_generator(mode="evaluation", batch_size=30490*28):
+    for (X, Y, w) in batch_generator(mode="evaluation", batch_size=30490 * 28):
         H = model(X)
         H = tf.squeeze(H)
         loss_i = tf.math.squared_difference(Y, H)
