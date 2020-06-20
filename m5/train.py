@@ -246,6 +246,7 @@ def increment_step():
 @tf.function
 def train_batch(model, X, Y, w):
     with tf.GradientTape() as tape:
+        w = w / tf.reduce_sum(w)
         H = model(X)
         loss = tf.losses.mean_squared_error(Y, H)
         loss = loss ** 0.5
