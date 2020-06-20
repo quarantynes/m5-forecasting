@@ -31,6 +31,7 @@ item_category, _ = item_category()
 item_dept, _ = item_dept()
 item_kind, _ = item_kind()
 reduced_calendar = reduced_calendar()
+item_weight = item_weight()
 # load item_state as pandas series to use look_up function
 # TODO: perform lookup using only numpy
 state_series = pd.Categorical.from_codes(*item_state())
@@ -84,7 +85,7 @@ def make_batch(items_index, days_index):
     except IndexError:
         target = None
 
-    weight = item_weight()[items_index]
+    weight = item_weight[items_index]
     return features, target, weight
 
 
