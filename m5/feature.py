@@ -138,7 +138,8 @@ def item_scale() -> ItemVector:
     """
     s = unit_sales_per_item_over_time()
     s = s[:, 0 : -28 * 1].astype(np.float32)
-    item_w = np.sqrt(np.mean(np.diff(s, axis=1) ** 2, axis=1))
+    # item_w = np.sqrt(np.mean(np.diff(s, axis=1) ** 2, axis=1))
+    item_w = np.mean(np.diff(s, axis=1) ** 2, axis=1)
     assert isinstance(item_w, ItemVector), ItemVector.type_of(item_w)
     return item_w
 
