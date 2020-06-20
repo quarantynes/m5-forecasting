@@ -10,7 +10,8 @@ memory = Memory("./joblib_cache")
 Series = Type[pd.Series]
 DataFrame = Type[pd.DataFrame]
 
-SALES_TRAIN_VALIDATION = "data/sales_train_validation.csv"
+# SALES_TRAIN_VALIDATION = "data/sales_train_validation.csv"
+SALES_TRAIN_VALIDATION = "data/sales_train_evaluation.csv"
 CALENDAR = "data/calendar.csv"
 SELL_PRICES = "data/sell_prices.csv"
 
@@ -85,8 +86,6 @@ def prices_per_item_over_time() -> ItemArray:
     for d in days:
         if d not in items.columns:
             items.loc[:, d] = 0.0
-    # assert items.shape == (30490, 1913)
-    # assert p.shape ==  (30490, 1913)
     p = p.reindex_like(items)
     p = p.fillna(method="backfill", axis=1)
     return p.values.astype(np.float32)
@@ -97,12 +96,6 @@ def unit_sales_per_item_over_time() -> ItemArray:
     s = open_items_sale_data()
     s = s.set_index("id")
     s = s.select_dtypes(np.float16)
-
-    # week_day = pd.read_csv(CALENDAR, usecols=['wm_yr_wk', 'd'])
-    # days = week_day.d.unique()
-    # for d in days:
-    #     if d not in items.columns:
-    #         items.loc[:,d] = np.float16(0)
 
     return s.values.astype(np.float32)
 
@@ -116,7 +109,10 @@ def sales_weight() -> ItemVector:
     """
     s = unit_sales_per_item_over_time()
     p = prices_per_item_over_time()
-    s = s[:, -28 * 1 :]
+    # the following ranges use the last month in train data set. it is aligned
+    # with public leaderboard data. for submission, we should use one month
+    # after.
+    s = s[:, -28 * 2 : -28 * 1]
     p = p[:, -28 * 3 : -28 * 2]
     assert p.shape == s.shape, f"{p.shape} {s.shape}"
     ps = p.astype(np.float32) * s
