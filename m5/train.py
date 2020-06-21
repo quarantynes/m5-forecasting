@@ -275,24 +275,23 @@ def evaluate(model):
     computed inside this function.
     """
     print("\tEntering in evaluate function.")
-    loss_list = []
-    Hlist = []
-    # TODO: rewrite evaluate function
-    for (X, Y, w) in batch_generator(mode="evaluation", batch_size=28):
+    for (X, Y, w) in batch_generator(mode="evaluation", batch_size=30940 * 28):
         H = model(X)
-        H = tf.squeeze(H)
-        # loss_i = tf.losses.mean_squared_error(Y, H)
-        loss_i = (H - Y) ** 2
-        loss_i = tf.reduce_mean(loss_i)
-        loss_i = loss_i ** 0.5
-        loss_i = loss_i * w[0]  # all w in range should be equal
-        loss_list.append(tf.reduce_sum(loss_i))
-        Hlist.append(H)
-    loss = tf.reduce_sum(loss_list)
-    tf.debugging.assert_scalar(loss)
-    H = tf.concat(Hlist, axis=0)
-    assert H.shape == (30490 * 28,)
+    H = tf.squeeze(H)
+    Y = tf.squeeze(Y)
+    w = tf.squeeze(w)
+    tf.debugging.assert_shapes(
+        [(H, (30490 * 28,)), (Y, (30490 * 28,)), (w, (30490 * 28,)),]
+    )
     H = tf.reshape(H, (30490, 28))
+    Y = tf.reshape(Y, (30490, 28))
+    w = tf.reshape(w, (30490, 28))
+    w = w[:, 0]
+    loss = tf.reduce_mean(tf.square(Y - H), axis=1)
+    loss = tf.sqrt(loss)
+    loss = loss * w
+    loss = tf.reduce_sum(loss)
+    tf.debugging.assert_scalar(loss)
     return H, loss
 
 
