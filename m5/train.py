@@ -243,14 +243,16 @@ def increment_step():
     return tf.summary.experimental.get_step()
 
 
-@tf.function
+# @tf.function
 def train_batch(model, X, Y, w):
     with tf.GradientTape() as tape:
-        w = w / tf.reduce_sum(w)
+        # w = w / tf.reduce_sum(w)
         H = model(X)
-        loss = tf.losses.mean_squared_error(Y, H)
-        loss = loss ** 0.5
+        # loss = tf.losses.mean_squared_error(Y, H)
+        loss = tf.math.squared_difference(Y, H)
+        # loss = loss ** 0.5
         loss = loss * w
+        loss = tf.reduce_mean(loss)
     grads = tape.gradient(loss, model.trainable_weights)
     optimizer.apply_gradients(zip(grads, model.trainable_weights))
     return loss
