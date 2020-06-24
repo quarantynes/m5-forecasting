@@ -86,6 +86,8 @@ def make_batch(items_index, days_index):
         snap=feat_snap,
         state=feat_item_state,
         store=feat_item_store,
+        days_index=days_index,
+        items_index=items_index,
     )
 
     try:
