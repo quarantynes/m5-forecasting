@@ -11,6 +11,7 @@ from m5.feature import (
     reduced_calendar,
     unit_sales_per_item_over_time,
     item_weight,
+    item_store,
     item_kind,
 )
 
@@ -36,6 +37,8 @@ item_weight = item_weight()
 # load item_state as pandas series to use look_up function
 # TODO: perform lookup using only numpy
 state_series = pd.Categorical.from_codes(*item_state())
+item_state, _ = item_state()
+item_store, _ = item_store()
 
 
 def make_batch(items_index, days_index):
@@ -48,13 +51,15 @@ def make_batch(items_index, days_index):
         month    : int 0..11
         year     : int ?
         snap     : boolean
+        state    : int 0..2
     """
     assert len(items_index) == len(days_index)
     feat_item_category = item_category.take(items_index)
     feat_item_dept = item_dept.take(items_index)
     feat_item_kind = item_kind.take(items_index)
     feat_calendar = reduced_calendar.take(days_index)
-
+    feat_item_state = item_state.take(items_index)
+    feat_item_store = item_store.take(items_index)
     # split feat_calendar into feat_calendar and snap_df
     # then, rename snap_df columns to match the values in state_series
     snap_df = feat_calendar[["snap_CA", "snap_TX", "snap_WI"]]
@@ -79,6 +84,8 @@ def make_batch(items_index, days_index):
         month=feat_calendar.month.values,
         year=feat_calendar.year.values,
         snap=feat_snap,
+        state=feat_item_state,
+        store=feat_item_store,
     )
 
     try:
@@ -156,38 +163,38 @@ class StModel(tf.keras.models.Model):
         super().__init__(**kwargs)
         self.dnn_units = dnn_units
         self.category = layers.Embedding(
-            input_dim=3, output_dim=2, input_length=1, name="category",
+            input_dim=3, output_dim=3, input_length=1, name="category",
         )
         self.dept = layers.Embedding(
             input_dim=7, output_dim=3, input_length=1, name="dept",
         )
         self.kind = layers.Embedding(
-            input_dim=3049, output_dim=30, input_length=1, name="kind",
+            input_dim=3049, output_dim=10, input_length=1, name="kind",
         )
         self.weekday = layers.Embedding(
-            input_dim=8, output_dim=1, input_length=1, name="weekday",
+            input_dim=8, output_dim=3, input_length=1, name="weekday",
         )
         self.month = layers.Embedding(
-            input_dim=13, output_dim=1, input_length=1, name="month",
+            input_dim=13, output_dim=3, input_length=1, name="month",
         )
-        # self.year = layers.Embedding(
-        #     input_dim= 8,
-        #     output_dim= 3,
-        #     input_length= 1,
-        # )
+        self.year = layers.Embedding(input_dim=8, output_dim=3, input_length=1,)
         self.snap = layers.Embedding(
-            input_dim=2, output_dim=2, input_length=1, name="snap",
+            input_dim=2, output_dim=1, input_length=1, name="snap",
         )
+        self.state = layers.Embedding(input_dim=3, output_dim=3,)
+        self.store = layers.Embedding(input_dim=3, output_dim=3,)
         self.all_together = layers.Concatenate(
             axis=1
         )  # axis=1 because axis 0 is batch dimension
         self.DNN = tf.keras.Sequential(
             [
                 layers.Dense(units=dnn_units, activation=tf.keras.activations.relu),
-                # layers.Dense(units=dnn_units // 2,
-                #              activation=tf.keras.activations.relu),
-                # layers.Dense(units=dnn_units // 4,
-                #              activation=tf.keras.activations.relu),
+                layers.Dense(
+                    units=dnn_units // 2, activation=tf.keras.activations.relu
+                ),
+                layers.Dense(
+                    units=dnn_units // 4, activation=tf.keras.activations.relu
+                ),
                 layers.Dense(1, activation=tf.keras.activations.relu),
             ],
             name="DNN",
@@ -205,17 +212,11 @@ class StModel(tf.keras.models.Model):
         weekday = self.weekday(inputs["weekday"])
         month = self.month(inputs["month"])
         snap = self.snap(inputs["snap"])
-        # year = self.year(inputs['year'])
+        year = self.year(tf.math.add(inputs["year"], -2011))
+        state = self.state(inputs["store"])
+        store = self.store(inputs["state"])
         all_together = self.all_together(
-            [
-                category,
-                dept,
-                kind,
-                weekday,
-                month,
-                # year,
-                snap,
-            ]
+            [category, dept, kind, weekday, month, year, snap, state, store,]
         )
 
         output = self.DNN(all_together)
