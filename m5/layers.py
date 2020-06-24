@@ -35,4 +35,11 @@ class Price(layers.Layer):
         )
 
     def call(self, inputs, training=None, mask=None):
-        pass
+        days_index = inputs["days_index"]
+        items_index = inputs["items_index"]
+        bi_dim_index = prices = tf.stack([items_index, days_index], axis=-1)
+        prices = tf.gather_nd(self.prices, bi_dim_index)
+        mean_price = tf.gather(self.mean_price, items_index)
+        relative_price = tf.gather_nd(self.relative_price, bi_dim_index)
+
+        return prices, mean_price, relative_price
