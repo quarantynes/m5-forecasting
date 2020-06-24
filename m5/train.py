@@ -13,6 +13,7 @@ from m5.feature import (
     item_weight,
     item_store,
     item_kind,
+    prices_per_item_over_time,
 )
 
 
