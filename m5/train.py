@@ -1,4 +1,4 @@
-import m5.debug
+from m5.debug import *
 import pandas as pd
 import tensorflow as tf
 from tensorflow.keras import layers
@@ -244,13 +244,13 @@ def increment_step():
     return tf.summary.experimental.get_step()
 
 
-# @tf.function
+@tf.function()
 def train_batch(model, X, Y, w):
     with tf.GradientTape() as tape:
         H = model(X)
         H = tf.squeeze(H)
         loss = tf.math.squared_difference(Y, H)
-        loss = loss * w
+        loss *= w
         loss = tf.reduce_mean(loss)
     grads = tape.gradient(loss, model.trainable_weights)
     optimizer.apply_gradients(zip(grads, model.trainable_weights))
@@ -288,6 +288,8 @@ def evaluate(model):
     Y = tf.reshape(Y, (30490, 28))
     w = tf.reshape(w, (30490, 28))
     w = w[:, 0]
+    # pdb.set_trace()
+    plt.plot(tf.reduce_mean(H, axis=1))
     loss = tf.reduce_mean(tf.square(Y - H), axis=1)
     loss = tf.sqrt(loss)
     loss = loss * w

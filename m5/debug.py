@@ -1,4 +1,4 @@
-# import pdb
+import pdb
 
 # import trepan
 import matplotlib
@@ -16,6 +16,3 @@ import pandas as pd
 def hist_layer(layer):
     data = layer.weights[0].numpy().squeeze()
     return pd.Series(data).hist(bins=100)
-
-
-import trepan
