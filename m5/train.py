@@ -362,7 +362,8 @@ def train_model():
 
 nb_epochs = 10
 batch_size = 1024 * 16
-steps_per_epoch = (30000 * 2000) // (batch_size * 10)
+partial_set_factor = 1  # set to higher values for fast training
+steps_per_epoch = (30000 * 2000) // (batch_size * partial_set_factor)
 train_model()
 submit(model)
 # TODO predictions are all too close to the mean value. fix model
