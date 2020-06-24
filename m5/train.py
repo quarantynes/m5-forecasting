@@ -182,7 +182,7 @@ class StModel(tf.keras.models.Model):
             input_dim=2, output_dim=1, input_length=1, name="snap",
         )
         self.state = layers.Embedding(input_dim=3, output_dim=3,)
-        self.store = layers.Embedding(input_dim=7, output_dim=3,)
+        self.store = layers.Embedding(input_dim=10, output_dim=3,)
         self.all_together = layers.Concatenate(
             axis=1
         )  # axis=1 because axis 0 is batch dimension
@@ -290,13 +290,14 @@ def evaluate(model):
     w = tf.reshape(w, (30490, 28))
     w = w[:, 0]
     # pdb.set_trace()
-    plt.plot(tf.reduce_mean(H, axis=1))
+    # plt.plot(tf.reduce_mean(H, axis=1))
+    sns.jointplot(H, Y)
     loss = tf.reduce_mean(tf.square(Y - H), axis=1)
     loss = tf.sqrt(loss)
     loss = loss * w
     loss = tf.reduce_sum(loss)
     tf.debugging.assert_scalar(loss)
-    return H, loss
+    return H, loss, Y
 
 
 def write_output(H, mode="evaluation"):
@@ -348,7 +349,7 @@ def train_model():
 
             # Evaluate: record loss on tensorboard and write predictions for
             # evaluation period in csv format
-            H, loss = evaluate(model)
+            H, loss, _ = evaluate(model)
             tf.summary.scalar(f"{model.name}_eval_loss", tf.reduce_mean(loss))
             # write_output(H, "evaluation")
             print(f"loss: {loss}")
