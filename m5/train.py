@@ -182,7 +182,7 @@ class StModel(tf.keras.models.Model):
             input_dim=2, output_dim=1, input_length=1, name="snap",
         )
         self.state = layers.Embedding(input_dim=3, output_dim=3,)
-        self.store = layers.Embedding(input_dim=3, output_dim=3,)
+        self.store = layers.Embedding(input_dim=7, output_dim=3,)
         self.all_together = layers.Concatenate(
             axis=1
         )  # axis=1 because axis 0 is batch dimension
@@ -213,8 +213,8 @@ class StModel(tf.keras.models.Model):
         month = self.month(inputs["month"])
         snap = self.snap(inputs["snap"])
         year = self.year(tf.math.add(inputs["year"], -2011))
-        state = self.state(inputs["store"])
-        store = self.store(inputs["state"])
+        state = self.state(inputs["state"])
+        store = self.store(inputs["store"])
         all_together = self.all_together(
             [category, dept, kind, weekday, month, year, snap, state, store,]
         )
