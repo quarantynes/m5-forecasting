@@ -151,6 +151,9 @@ def batch_generator(mode, batch_size):
             yield make_batch(*index_tuple)
 
 
+import m5.layers
+
+
 class StModel(tf.keras.models.Model):
     """
     This model predicts the unit sale for a given product_id, in a
