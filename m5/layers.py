@@ -24,7 +24,8 @@ class Price(layers.Layer):
         self.prices = tf.convert_to_tensor(prices_array)
         self.mean_price = tf.reduce_mean(self.prices, axis=1)
 
-        self.relative_price = self.prices - tf.stack(1969 * [self.mean_price], axis=1)
+        # self.relative_price = self.prices - tf.stack(1969 * [self.mean_price], axis=1)
+        self.relative_price = self.prices / tf.stack(1969 * [self.mean_price], axis=1)
 
         tf.debugging.assert_shapes(
             [
