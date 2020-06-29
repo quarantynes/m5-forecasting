@@ -305,3 +305,16 @@ def reduced_calendar():
         usecols=["d", "wday", "month", "year", "snap_CA", "snap_TX", "snap_WI"],
     )
     return c
+
+
+@memory.cache
+def events_calendar():
+    calendar_df = pd.read_csv(
+        CALENDAR,
+        usecols=["event_name_1", "event_name_2", "event_type_1", "event_type_2"],
+    )
+    ev1_df = pd.pivot(calendar_df, columns="event_name_1", values="event_type_1")
+    ev2_df = pd.pivot(calendar_df, columns="event_name_2", values="event_type_2")
+    ev1_df = ev1_df.fillna(ev2_df)
+    bool_events_df = ev1_df.notna()
+    return bool_events_df, ev1_df
