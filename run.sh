@@ -2,4 +2,4 @@
 
 source ~/.virtualenvs/m5-forecasting/bin/activate
 
-python ./m5/train.py
+ipython --pdb -m m5.train
