@@ -1,5 +1,6 @@
 from m5.debug import *
 import pandas as pd
+import numpy as np
 import tensorflow as tf
 from tensorflow.keras import layers
 from tqdm import tqdm
@@ -87,8 +88,8 @@ def make_batch(items_index, days_index):
         snap=feat_snap,
         state=feat_item_state,
         store=feat_item_store,
-        days_index=days_index,
-        items_index=items_index,
+        days_index=np.asarray(days_index),
+        items_index=np.asarray(items_index),
     )
 
     try:
