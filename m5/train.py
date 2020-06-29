@@ -309,15 +309,6 @@ def train_batch(model, X, Y, w):
     return loss
 
 
-def evaluate_now(evaluation_period=100) -> bool:
-    """
-    This method should be used to set evaluation independently of the epoch. It
-    returns True if the current iteration is a multiple of evaluation_period.
-    """
-    step = tf.summary.experimental.get_step()
-    return (step % evaluation_period) == 0
-
-
 def evaluate(model):
     """ Computes the prediction H and the loss for the whole evaluation range.
     Returns:
@@ -422,9 +413,5 @@ def train_model():
     print("finish train_model")
 
 
-nb_epochs = 10
-batch_size = 1024 * 16
-partial_set_factor = 1  # set to higher values for fast training
-steps_per_epoch = (30000 * 2000) // (batch_size * partial_set_factor)
 train_model()
 submit(model)
