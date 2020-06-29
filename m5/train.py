@@ -243,6 +243,7 @@ class StModel(tf.keras.models.Model):
         prices, mean_price, relative_price = self.price(inputs)
         # mean_price = tf.reshape(mean_price, [-1, 1])
         relative_price = tf.expand_dims(relative_price, axis=-1)
+        prices = tf.expand_dims(prices, axis=-1)
         all_together = self.all_together(
             [
                 category,
@@ -257,6 +258,7 @@ class StModel(tf.keras.models.Model):
                 # mean_price,
                 events,
                 relative_price,
+                prices,
             ]
         )
 
