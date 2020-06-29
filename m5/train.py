@@ -106,6 +106,7 @@ def index_generator(days_range, batch_size):
     whole day_range for all items. Samples are ordered in two axis: items and
     days. In the resulting sequence, equal items are contiguous.
     """
+    # TODO: change index order to generate day wise batch
     from more_itertools import take
 
     full_sequence_items = (
@@ -133,15 +134,14 @@ def batch_generator(mode, batch_size):
     When samples are ordered, each batch corresponds to the ordered
     days of a unique item, which respects the natural order needed to
     write the final csv.
+    UPDATE: in this branch, each batch corresponds to all items of a given day.
+    days are generated in order
     """
-    if mode == "train":
-        while True:
-            from numpy.random import randint
+    items_index = list(range(30490))
 
-            # set size so that the size of batch approximates batch_size
-            size = int(batch_size)
-            days_index = randint(training_days, size=size)
-            items_index = randint(nb_items, size=size)
+    if mode == "train":
+        for days in range(training_days):
+            days_index = [days] * len(items_index)
             yield make_batch(items_index, days_index)
     elif mode == "evaluation":
         for index_tuple in index_generator(evaluation_range, batch_size):
@@ -270,6 +270,7 @@ def increment_step():
 
 @tf.function()
 def train_batch(model, X, Y, w):
+
     with tf.GradientTape() as tape:
         H = model(X)
         H = tf.squeeze(H)
@@ -363,9 +364,7 @@ def train_model():
             print(f"Epoch: {epoch}")
 
             for (X, Y, w) in tqdm(batch_generator(mode="train", batch_size=batch_size)):
-                if increment_step() % steps_per_epoch == 0:
-                    # need break here because the generator is infinite
-                    break
+                increment_step()
 
                 batch_loss = train_batch(model, X, Y, w)
                 # tf.summary.scalar(
