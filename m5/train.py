@@ -378,14 +378,19 @@ def write_output(H, mode="evaluation"):
 
 def submit(model):
     print("writing submission file")
+    model.reset_states()
+    for (X, Y, w) in batch_generator(mode="training"):
+        H = model(X)
+    for (X, Y, w) in batch_generator(mode="evaluation"):
+        H = model(X)
     Hlist = []
-    for (X, _, w) in batch_generator(mode="submission", batch_size=30490 * 28):
+    for (X, _, w) in batch_generator(mode="submission", batch_size=None):
         H = model(X)
         H = tf.squeeze(H)
         Hlist.append(H)
-    H = tf.concat(Hlist, axis=0)
-    assert H.shape == (30490 * 28,)
-    H = tf.reshape(H, (30490, 28))
+    H = tf.stack(Hlist,)
+    H = tf.transpose(H)
+    assert H.shape == (30490, 28,)
     write_output(H, mode="submission")
 
 
