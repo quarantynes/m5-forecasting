@@ -383,5 +383,3 @@ partial_set_factor = 1  # set to higher values for fast training
 steps_per_epoch = (30000 * 2000) // (batch_size * partial_set_factor)
 train_model()
 submit(model)
-# TODO predictions are all too close to the mean value. fix model
-# TODO loss evaluated by our model is about 5x higher than loss evaluated at kaggle
