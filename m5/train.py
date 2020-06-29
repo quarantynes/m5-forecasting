@@ -271,6 +271,8 @@ def train_batch(model, X, Y, w):
         H = model(X)
         H = tf.squeeze(H)
         loss = tf.math.squared_difference(Y, H)
+        # loss = H - Y * tf.math.log(H)
+        # loss = tf.math.log(tf.cosh(H - Y))
         loss *= w
         loss = tf.reduce_mean(loss)
     grads = tape.gradient(loss, model.trainable_weights)
