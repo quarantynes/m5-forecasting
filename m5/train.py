@@ -15,6 +15,7 @@ from m5.feature import (
     item_store,
     item_kind,
     prices_per_item_over_time,
+    events_calendar,
 )
 
 
@@ -23,6 +24,7 @@ from m5.params import (
     logdir,
     nb_epochs,
     training_days,
+    training_range,
     evaluation_range,
     submission_range,
     nb_items,
@@ -41,6 +43,8 @@ item_weight = item_weight()
 state_series = pd.Categorical.from_codes(*item_state())
 item_state, _ = item_state()
 item_store, _ = item_store()
+prices_per_item_over_time = prices_per_item_over_time()
+events, _ = events_calendar()
 
 
 def make_batch(items_index, days_index):
@@ -123,7 +127,7 @@ def index_generator(days_range, batch_size):
         yield items_index, days_index
 
 
-def batch_generator(mode, batch_size):
+def batch_generator(mode, batch_size=None):
     """ This generator returns either random samples from the training
     set or ordered samples from the validation dataset. Each batch is
     a tuple (x,y,w) If mode is:
@@ -141,15 +145,20 @@ def batch_generator(mode, batch_size):
     items_index = list(range(30490))
 
     if mode == "train":
-        for days in range(training_days):
+        for days in range(*training_range):
             days_index = [days] * len(items_index)
             yield make_batch(items_index, days_index)
     elif mode == "evaluation":
-        for index_tuple in index_generator(evaluation_range, batch_size):
-            yield make_batch(*index_tuple)
+        for days in range(*evaluation_range):
+            days_index = [days] * len(items_index)
+            yield make_batch(items_index, days_index)
     elif mode == "submission":
-        for index_tuple in index_generator(submission_range, batch_size):
-            yield make_batch(*index_tuple)
+        for days in range(*evaluation_range):
+            days_index = [days] * len(items_index)
+            yield make_batch(items_index, days_index)
+        # TODO: implement submission after evaluation is OK
+        # for index_tuple in index_generator(submission_range, batch_size):
+        #     yield make_batch(*index_tuple)
 
 
 import m5.layers
@@ -166,9 +175,9 @@ class StModel(tf.keras.models.Model):
     range. The inputs of this model are defined in function make_batch
     """
 
-    def __init__(self, dnn_units, **kwargs):
+    def __init__(self, units, **kwargs):
         super().__init__(**kwargs)
-        self.dnn_units = dnn_units
+        self.units = units
         self.category = layers.Embedding(
             input_dim=3, output_dim=3, input_length=1, name="category",
         )
@@ -176,7 +185,7 @@ class StModel(tf.keras.models.Model):
             input_dim=7, output_dim=3, input_length=1, name="dept",
         )
         self.kind = layers.Embedding(
-            input_dim=3049, output_dim=10, input_length=1, name="kind",
+            input_dim=3049, output_dim=5, input_length=1, name="kind",
         )
         self.weekday = layers.Embedding(
             input_dim=8, output_dim=3, input_length=1, name="weekday",
@@ -188,25 +197,32 @@ class StModel(tf.keras.models.Model):
         self.snap = layers.Embedding(
             input_dim=2, output_dim=1, input_length=1, name="snap",
         )
-        self.state = layers.Embedding(input_dim=3, output_dim=3, input_length=1)
-        self.store = layers.Embedding(input_dim=10, output_dim=3, input_length=1)
-        self.price = m5.layers.Price(prices_per_item_over_time())
+        self.state = layers.Embedding(
+            input_dim=3, output_dim=3, input_length=1, name="state"
+        )
+        self.store = layers.Embedding(
+            input_dim=10, output_dim=3, input_length=1, name="store"
+        )
+        self.price = m5.layers.Price(prices_per_item_over_time)
+        self.events = m5.layers.Events(events)
         self.all_together = layers.Concatenate(
             axis=1
         )  # axis=1 because axis 0 is batch dimension
-        self.DNN = tf.keras.Sequential(
-            [
-                layers.Dense(units=dnn_units, activation=tf.keras.activations.relu),
-                layers.Dense(
-                    units=dnn_units // 2, activation=tf.keras.activations.relu
-                ),
-                layers.Dense(
-                    units=dnn_units // 4, activation=tf.keras.activations.relu
-                ),
-                layers.Dense(1, activation=tf.keras.activations.relu),
-            ],
-            name="DNN",
+        # self.DNN = tf.keras.Sequential(
+        #     [
+        #         layers.Dense(units=units, activation=tf.keras.activations.linear),
+        #         layers.Dense(units=units, activation=tf.keras.activations.relu),
+        #         layers.Dense(units=units, activation=tf.keras.activations.linear),
+        #         layers.Dense(units=units, activation=tf.keras.activations.relu),
+        #         layers.Dense(units=units, activation=tf.keras.activations.linear),
+        #         layers.Dense(1, activation=tf.keras.activations.relu),
+        #     ],
+        #     name="DNN",
+        # )
+        self.rnn = layers.GRU(
+            units=units, activation=tf.keras.activations.sigmoid, stateful=True
         )
+        self.dense = layers.Dense(1)
 
     def call(self, inputs, training=None, mask=None):
         """
@@ -223,10 +239,10 @@ class StModel(tf.keras.models.Model):
         year = self.year(tf.math.add(inputs["year"], -2011))
         state = self.state(inputs["state"])
         store = self.store(inputs["store"])
-
+        events = self.events(inputs)
         prices, mean_price, relative_price = self.price(inputs)
-        mean_price = tf.reshape(mean_price, [-1, 1])
-        relative_price = tf.reshape(relative_price, [-1, 1])
+        # mean_price = tf.reshape(mean_price, [-1, 1])
+        relative_price = tf.expand_dims(relative_price, axis=-1)
         all_together = self.all_together(
             [
                 category,
@@ -239,16 +255,20 @@ class StModel(tf.keras.models.Model):
                 state,
                 store,
                 # mean_price,
+                events,
                 relative_price,
             ]
         )
 
-        output = self.DNN(all_together)
+        all_together = tf.expand_dims(all_together, axis=1)
+
+        rnn = self.rnn(all_together)
+        output = self.dense(rnn)
         return output
 
 
 print("building model")
-model = StModel(dnn_units=256, name="StModel",)
+model = StModel(units=256, name="RecurrentModel",)
 optimizer = tf.keras.optimizers.Adam(learning_rate=1e-3)
 print("testing model with one single batch")
 x, y, w = next(batch_generator(mode="train", batch_size=128))
@@ -269,7 +289,7 @@ def increment_step():
     return tf.summary.experimental.get_step()
 
 
-@tf.function()
+# @tf.function()
 def train_batch(model, X, Y, w):
 
     with tf.GradientTape() as tape:
@@ -279,7 +299,8 @@ def train_batch(model, X, Y, w):
         # loss = H - Y * tf.math.log(H)
         # loss = tf.math.log(tf.cosh(H - Y))
         loss *= w
-        loss = tf.reduce_mean(loss)
+        # loss = tf.reduce_mean(loss)
+        loss = tf.reduce_sum(loss)
     grads = tape.gradient(loss, model.trainable_weights)
     optimizer.apply_gradients(zip(grads, model.trainable_weights))
     return loss
@@ -303,22 +324,39 @@ def evaluate(model):
     loss: is a TF scalar. The mean of the loss over all evaluation points is
     computed inside this function.
     """
+    # TODO: there is a bug in evaluation, but the training seems ok
     print("\tEntering in evaluate function.")
-    for (X, Y, w) in batch_generator(mode="evaluation", batch_size=30940 * 28):
+    model.reset_states()
+    for (X, Y, w) in batch_generator(mode="training"):
         H = model(X)
-    H = tf.squeeze(H)
-    Y = tf.squeeze(Y)
-    w = tf.squeeze(w)
+    Hlist = []
+    Ylist = []
+    for (X, Y, w) in batch_generator(mode="evaluation"):
+        H = model(X)
+
+        H = tf.squeeze(H)
+        Y = tf.squeeze(Y)
+        w = tf.squeeze(w)
+        Hlist.append(H)
+        Ylist.append(Y)
+    H = tf.stack(Hlist)
+    Y = tf.stack(Ylist)
+    H = tf.transpose(H)
+    Y = tf.transpose(Y)
+
     tf.debugging.assert_shapes(
-        [(H, (30490 * 28,)), (Y, (30490 * 28,)), (w, (30490 * 28,)),]
+        [(H, (30490, 28,)), (Y, (30490, 28,)), (w, (30490,)),]
     )
-    H = tf.reshape(H, (30490, 28))
-    Y = tf.reshape(Y, (30490, 28))
-    w = tf.reshape(w, (30490, 28))
-    w = w[:, 0]
-    # pdb.set_trace()
+    # H = tf.reshape(H, (30490, 28))
+    # Y = tf.reshape(Y, (30490, 28))
+    # w = tf.reshape(w, (30490, 28))
+    # w = w[:, 0]
+
     # plt.plot(tf.reduce_mean(H, axis=1))
     sns.jointplot(H, Y)
+    import time
+
+    time.sleep(1)
     loss = tf.reduce_mean(tf.square(Y - H), axis=1)
     loss = tf.sqrt(loss)
     loss = loss * w
@@ -365,6 +403,7 @@ def train_model():
             print(f"Epoch: {epoch}")
 
             for (X, Y, w) in tqdm(batch_generator(mode="train", batch_size=batch_size)):
+                model.reset_states()
                 increment_step()
 
                 batch_loss = train_batch(model, X, Y, w)

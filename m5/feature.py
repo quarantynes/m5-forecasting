@@ -317,4 +317,4 @@ def events_calendar():
     ev2_df = pd.pivot(calendar_df, columns="event_name_2", values="event_type_2")
     ev1_df = ev1_df.fillna(ev2_df)
     bool_events_df = ev1_df.notna()
-    return bool_events_df, ev1_df
+    return bool_events_df.values, ev1_df.values
