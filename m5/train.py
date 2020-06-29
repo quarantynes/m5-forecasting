@@ -184,8 +184,9 @@ class StModel(tf.keras.models.Model):
         self.snap = layers.Embedding(
             input_dim=2, output_dim=1, input_length=1, name="snap",
         )
-        self.state = layers.Embedding(input_dim=3, output_dim=3,)
-        self.store = layers.Embedding(input_dim=10, output_dim=3,)
+        self.state = layers.Embedding(input_dim=3, output_dim=3, input_length=1)
+        self.store = layers.Embedding(input_dim=10, output_dim=3, input_length=1)
+        self.price = m5.layers.Price(prices_per_item_over_time())
         self.all_together = layers.Concatenate(
             axis=1
         )  # axis=1 because axis 0 is batch dimension
@@ -218,8 +219,24 @@ class StModel(tf.keras.models.Model):
         year = self.year(tf.math.add(inputs["year"], -2011))
         state = self.state(inputs["state"])
         store = self.store(inputs["store"])
+
+        prices, mean_price, relative_price = self.price(inputs)
+        mean_price = tf.reshape(mean_price, [-1, 1])
+        relative_price = tf.reshape(relative_price, [-1, 1])
         all_together = self.all_together(
-            [category, dept, kind, weekday, month, year, snap, state, store,]
+            [
+                category,
+                dept,
+                kind,
+                weekday,
+                month,
+                year,
+                snap,
+                state,
+                store,
+                # mean_price,
+                relative_price,
+            ]
         )
 
         output = self.DNN(all_together)
@@ -227,7 +244,7 @@ class StModel(tf.keras.models.Model):
 
 
 print("building model")
-model = StModel(dnn_units=512, name="StModel",)
+model = StModel(dnn_units=256, name="StModel",)
 optimizer = tf.keras.optimizers.Adam(learning_rate=1e-3)
 print("testing model with one single batch")
 x, y, w = next(batch_generator(mode="train", batch_size=128))
