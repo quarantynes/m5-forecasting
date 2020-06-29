@@ -354,9 +354,7 @@ def evaluate(model):
 
     # plt.plot(tf.reduce_mean(H, axis=1))
     sns.jointplot(H, Y)
-    import time
 
-    time.sleep(1)
     loss = tf.reduce_mean(tf.square(Y - H), axis=1)
     loss = tf.sqrt(loss)
     loss = loss * w
