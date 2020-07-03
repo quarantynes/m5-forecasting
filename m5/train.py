@@ -185,15 +185,15 @@ class StModel(tf.keras.models.Model):
             input_dim=7, output_dim=3, input_length=1, name="dept",
         )
         self.kind = layers.Embedding(
-            input_dim=3049, output_dim=5, input_length=1, name="kind",
+            input_dim=3049, output_dim=10, input_length=1, name="kind",
         )
         self.weekday = layers.Embedding(
-            input_dim=8, output_dim=3, input_length=1, name="weekday",
+            input_dim=8, output_dim=8, input_length=1, name="weekday",
         )
         self.month = layers.Embedding(
-            input_dim=13, output_dim=3, input_length=1, name="month",
+            input_dim=13, output_dim=6, input_length=1, name="month",
         )
-        self.year = layers.Embedding(input_dim=8, output_dim=3, input_length=1,)
+        self.year = layers.Embedding(input_dim=8, output_dim=8, input_length=1,)
         self.snap = layers.Embedding(
             input_dim=2, output_dim=1, input_length=1, name="snap",
         )
@@ -201,28 +201,24 @@ class StModel(tf.keras.models.Model):
             input_dim=3, output_dim=3, input_length=1, name="state"
         )
         self.store = layers.Embedding(
-            input_dim=10, output_dim=3, input_length=1, name="store"
+            input_dim=10, output_dim=10, input_length=1, name="store"
         )
         self.price = m5.layers.Price(prices_per_item_over_time)
         self.events = m5.layers.Events(events)
         self.all_together = layers.Concatenate(
             axis=1
         )  # axis=1 because axis 0 is batch dimension
-        # self.DNN = tf.keras.Sequential(
-        #     [
-        #         layers.Dense(units=units, activation=tf.keras.activations.linear),
-        #         layers.Dense(units=units, activation=tf.keras.activations.relu),
-        #         layers.Dense(units=units, activation=tf.keras.activations.linear),
-        #         layers.Dense(units=units, activation=tf.keras.activations.relu),
-        #         layers.Dense(units=units, activation=tf.keras.activations.linear),
-        #         layers.Dense(1, activation=tf.keras.activations.relu),
-        #     ],
-        #     name="DNN",
-        # )
         self.rnn = layers.GRU(
-            units=units, activation=tf.keras.activations.sigmoid, stateful=True
+            units=units,
+            activation=tf.keras.activations.sigmoid,
+            stateful=True,
+            recurrent_dropout=0.3,
         )
-        self.dense = layers.Dense(1)
+        self.dense = layers.Dense(
+            1,
+            activation=tf.keras.activations.exponential,
+            kernel_regularizer=tf.keras.regularizers.l1(),
+        )
 
     def call(self, inputs, training=None, mask=None):
         """
@@ -270,7 +266,7 @@ class StModel(tf.keras.models.Model):
 
 
 print("building model")
-model = StModel(units=256, name="RecurrentModel",)
+model = StModel(units=512, name="RecurrentModel",)
 optimizer = tf.keras.optimizers.Adam(learning_rate=1e-3)
 print("testing model with one single batch")
 x, y, w = next(batch_generator(mode="train", batch_size=128))
@@ -291,7 +287,7 @@ def increment_step():
     return tf.summary.experimental.get_step()
 
 
-# @tf.function()
+@tf.function()
 def train_batch(model, X, Y, w):
 
     with tf.GradientTape() as tape:

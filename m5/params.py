@@ -12,7 +12,7 @@ evaluation_period = 100
 
 training_days = days - 28
 training_range = (0, training_days)
-# training_range = (1850, training_days)
+# training_range = (1700, training_days)
 evaluation_range = (training_days, training_days + 28)
 submission_range = (training_days + 28, training_days + 56)
 
