@@ -34,28 +34,28 @@ def item_store() -> Tuple[ItemArray, list]:
     return store.cat.codes.values, store.cat.categories
 
 
-@memory.cache
+@memory.cache()
 def item_dept() -> Tuple[ItemArray, list]:
     dept = pd.read_csv(SALES_TRAIN_VALIDATION, usecols=["dept_id"], dtype="category")
     dept = dept.squeeze()
     return dept.cat.codes.values, dept.cat.categories
 
 
-@memory.cache
+@memory.cache()
 def item_state() -> Tuple[ItemArray, list]:
     state = pd.read_csv(SALES_TRAIN_VALIDATION, usecols=["state_id"], dtype="category")
     state = state.squeeze()
     return state.cat.codes.values, state.cat.categories
 
 
-@memory.cache
+@memory.cache()
 def item_category() -> Tuple[ItemArray, list]:
     c = pd.read_csv(SALES_TRAIN_VALIDATION, usecols=["cat_id"], dtype="category")
     c = c.squeeze()
     return c.cat.codes.values, c.cat.categories
 
 
-@memory.cache
+@memory.cache()
 def item_kind() -> Tuple[ItemArray, list]:
     kind = pd.read_csv(SALES_TRAIN_VALIDATION, usecols=["item_id"], dtype="category")
     kind = kind.squeeze()
@@ -91,7 +91,7 @@ def prices_per_item_over_time() -> ItemArray:
     return p.values.astype(np.float32)
 
 
-@memory.cache
+@memory.cache()
 def unit_sales_per_item_over_time() -> ItemArray:
     s = open_items_sale_data()
     s = s.set_index("id")
@@ -188,7 +188,7 @@ def compose_aggregation_matrices(A: ItemVector, B: ItemVector) -> ItemVector:
     return output
 
 
-@memory.cache
+@memory.cache()
 def get_aggregation_matrices():
     """
     Returns the 12 aggregation matrices in vector format.
@@ -215,7 +215,7 @@ def get_aggregation_matrices():
     return output
 
 
-@memory.cache
+@memory.cache()
 def unit_sales_aggregation() -> Dict[int, MultipleSeries]:
     """
     Here, we compute the aggregations used in the M5 evaluation. Each
