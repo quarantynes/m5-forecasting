@@ -156,9 +156,6 @@ def batch_generator(mode, batch_size=None):
         for days in range(*evaluation_range):
             days_index = [days] * len(items_index)
             yield make_batch(items_index, days_index)
-        # TODO: implement submission after evaluation is OK
-        # for index_tuple in index_generator(submission_range, batch_size):
-        #     yield make_batch(*index_tuple)
 
 
 import m5.layers
