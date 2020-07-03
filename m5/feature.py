@@ -1,77 +1,83 @@
-import numpy as np
 import pandas as pd
-
-from m5.preprocess import memory, SALES_TRAIN_VALIDATION, CALENDAR, SELL_PRICES, open_items_sale_data
-
+from typing import Type
+import numpy as np
+from joblib import Memory
 from nptyping import NDArray
-from typing import Any, Tuple, List, Dict
+from typing import Any, Tuple, Dict
+
+memory = Memory("./joblib_cache")
+
+Series = Type[pd.Series]
+DataFrame = Type[pd.DataFrame]
+
+# SALES_TRAIN_VALIDATION = "data/sales_train_validation.csv"
+SALES_TRAIN_VALIDATION = "data/sales_train_evaluation.csv"
+CALENDAR = "data/calendar.csv"
+SELL_PRICES = "data/sell_prices.csv"
 
 ItemVector = NDArray[(30490), np.float32]
 ItemArray = NDArray[(30490, Any), np.float32]
 MultipleSeries = NDArray[(Any, Any), np.float32]
 
 
-@memory.cache()
+@memory.cache
 def item_id() -> pd.Series:
     id = pd.read_csv(SALES_TRAIN_VALIDATION, usecols=["id"])
     id = id.squeeze()
     return id
 
 
-@memory.cache()
+@memory.cache
 def item_store() -> Tuple[ItemArray, list]:
-    store = pd.read_csv(SALES_TRAIN_VALIDATION,
-                        usecols=["store_id"],
-                        dtype='category')
+    store = pd.read_csv(SALES_TRAIN_VALIDATION, usecols=["store_id"], dtype="category")
     store = store.squeeze()
     return store.cat.codes.values, store.cat.categories
 
 
 @memory.cache()
 def item_dept() -> Tuple[ItemArray, list]:
-    dept = pd.read_csv(SALES_TRAIN_VALIDATION,
-                       usecols=["dept_id"],
-                       dtype='category')
+    dept = pd.read_csv(SALES_TRAIN_VALIDATION, usecols=["dept_id"], dtype="category")
     dept = dept.squeeze()
     return dept.cat.codes.values, dept.cat.categories
 
 
 @memory.cache()
 def item_state() -> Tuple[ItemArray, list]:
-    state = pd.read_csv(SALES_TRAIN_VALIDATION,
-                        usecols=["state_id"],
-                        dtype='category')
+    state = pd.read_csv(SALES_TRAIN_VALIDATION, usecols=["state_id"], dtype="category")
     state = state.squeeze()
     return state.cat.codes.values, state.cat.categories
 
 
 @memory.cache()
 def item_category() -> Tuple[ItemArray, list]:
-    c = pd.read_csv(SALES_TRAIN_VALIDATION,
-                    usecols=["cat_id"],
-                    dtype='category')
+    c = pd.read_csv(SALES_TRAIN_VALIDATION, usecols=["cat_id"], dtype="category")
     c = c.squeeze()
     return c.cat.codes.values, c.cat.categories
 
 
 @memory.cache()
 def item_kind() -> Tuple[ItemArray, list]:
-    kind = pd.read_csv(SALES_TRAIN_VALIDATION,
-                       usecols=["item_id"],
-                       dtype='category')
+    kind = pd.read_csv(SALES_TRAIN_VALIDATION, usecols=["item_id"], dtype="category")
     kind = kind.squeeze()
     return kind.cat.codes.values, kind.cat.categories
 
 
-@memory.cache()
+@memory.cache
+def open_items_sale_data():
+    path = SALES_TRAIN_VALIDATION
+    columns = pd.read_csv(path, nrows=0).columns
+    d_columns = [col for col in columns if col.startswith("d_")]
+    return pd.read_csv(path, dtype={col: np.float16 for col in d_columns})
+
+
+@memory.cache
 def prices_per_item_over_time() -> ItemArray:
-    week_day = pd.read_csv(CALENDAR, usecols=['wm_yr_wk', 'd'])
-    items = pd.read_csv(SALES_TRAIN_VALIDATION,
-                        usecols=['id', 'store_id', 'item_id'])
+    week_day = pd.read_csv(CALENDAR, usecols=["wm_yr_wk", "d"])
+    items = pd.read_csv(SALES_TRAIN_VALIDATION, usecols=["id", "store_id", "item_id"])
     p = pd.read_csv(SELL_PRICES)  # ,dtype={"sell_price":np.float16})
     p = p.merge(week_day, on="wm_yr_wk")
-    p = p.merge(items, on=['store_id', 'item_id'])
-    p = p.loc[:, ['id', 'd', 'sell_price']]
+    p = p.merge(items, on=["store_id", "item_id"])
+    p = p.loc[:, ["id", "d", "sell_price"]]
     p = p.pivot(index="id", columns="d", values="sell_price")
     items = open_items_sale_data()
     items = items.set_index("id")
@@ -79,9 +85,7 @@ def prices_per_item_over_time() -> ItemArray:
     days = week_day.d.unique()
     for d in days:
         if d not in items.columns:
-            items.loc[:, d] = 0.
-    # assert items.shape == (30490, 1913)
-    # assert p.shape ==  (30490, 1913)
+            items.loc[:, d] = 0.0
     p = p.reindex_like(items)
     p = p.fillna(method="backfill", axis=1)
     return p.values.astype(np.float32)
@@ -93,48 +97,10 @@ def unit_sales_per_item_over_time() -> ItemArray:
     s = s.set_index("id")
     s = s.select_dtypes(np.float16)
 
-    # week_day = pd.read_csv(CALENDAR, usecols=['wm_yr_wk', 'd'])
-    # days = week_day.d.unique()
-    # for d in days:
-    #     if d not in items.columns:
-    #         items.loc[:,d] = np.float16(0)
-
     return s.values.astype(np.float32)
 
 
-@memory.cache()
-def item_weight() -> ItemVector:
-    """
-    The weights for each item are computed based on the difference of
-    unit sales in the training data set.  This is used in the
-    computation of RMSSE. It should not be confounded with the
-    aggregation weights of WRMSSE.  This weight is introduced to make
-    scale indifferent cost across the different time series.
-    """
-    s = unit_sales_per_item_over_time()
-    s = s[:, 0:-28 * 1].astype(np.float32)
-    item_w = np.sqrt(np.mean(np.diff(s, axis=1)**2, axis=1))
-    assert isinstance(item_w, ItemVector), ItemVector.type_of(item_w)
-    return item_w
-
-
-@memory.cache()
-def series_weight(s) -> ItemVector:
-    """
-    The weights for each series are computed based on the difference
-    of unit sales in the training data set.  This is used in the
-    computation of RMSSE. It should not be confused with the
-    aggregation weights of WRMSSE.  This weight is introduced to make
-    scale indifferent cost across the different time series.
-    """
-    s = s[:, 0:-28 * 1]
-    # item_w = np.sqrt(
-    item_w = np.mean(np.diff(s, axis=1)**2, axis=1)
-    # )
-    return item_w
-
-
-@memory.cache()
+@memory.cache
 def sales_weight() -> ItemVector:
     """
     These weights are the sum of dollar sales of the last 28 days in
@@ -143,16 +109,45 @@ def sales_weight() -> ItemVector:
     """
     s = unit_sales_per_item_over_time()
     p = prices_per_item_over_time()
-    s = s[:, -28 * 1:]
-    p = p[:, -28 * 3:-28 * 2]
+    # the following ranges use the last month in train data set. it is aligned
+    # with public leaderboard data. for submission, we should use one month
+    # after.
+    s = s[:, -28 * 2 : -28 * 1]
+    p = p[:, -28 * 3 : -28 * 2]
     assert p.shape == s.shape, f"{p.shape} {s.shape}"
     ps = p.astype(np.float32) * s
     w = np.sum(ps, axis=1)
-    # next, we can normalize the weights here instead of normalizing inside WRMSSE, since the every
-    # product appears once and only once in each aggregation
+    # next, we can normalize the weights here instead of normalizing
+    # inside WRMSSE, since the every product appears once and only
+    # once in each aggregation
     w = w / sum(w)
     assert isinstance(w, ItemVector), ItemVector.type_of(w)
     return w
+
+
+@memory.cache
+def item_scale() -> ItemVector:
+    """
+    The scale for each item is computed based on the difference of
+    unit sales in the training data set. This is used as a denominator to
+    compute the final weights.
+    """
+    s = unit_sales_per_item_over_time()
+    s = s[:, 0 : -28 * 1].astype(np.float32)
+    item_w = np.sqrt(np.mean(np.diff(s, axis=1) ** 2, axis=1))
+    assert isinstance(item_w, ItemVector), ItemVector.type_of(item_w)
+    return item_w
+
+
+@memory.cache
+def item_weight() -> ItemVector:
+    """
+    The weights for each item are computed using sales_weight/item-scale. This
+    function computes the weights for the 30490 items and so can be used in a
+    standard training loop. To compute the weights for the extended group of
+    series, considering all aggregations, we need another function.
+    """
+    return sales_weight() / item_scale()
 
 
 import tensorflow as tf
@@ -160,6 +155,7 @@ import tensorflow as tf
 
 def tf_groupby(time_series: ItemArray, grouping_matrix: ItemVector):
     from tensorflow import constant, unique, size, SparseTensor
+
     time_series = constant(time_series, tf.dtypes.float32)
     grouping = constant(grouping_matrix)
     elements, _ = unique(grouping)
@@ -170,10 +166,7 @@ def tf_groupby(time_series: ItemArray, grouping_matrix: ItemVector):
     )
 
     # print(grouping_lookup)
-    output = tf.sparse.sparse_dense_matmul(
-        sp_a=grouping_lookup,
-        b=time_series,
-    )
+    output = tf.sparse.sparse_dense_matmul(sp_a=grouping_lookup, b=time_series,)
     return output
 
 
@@ -184,7 +177,7 @@ def compose_aggregation_matrices(A: ItemVector, B: ItemVector) -> ItemVector:
     """
     A and B are vectors of indices representing two different
     aggregations. If A has m different indices and B has n different
-    indices, the aggregation composition will have m*n different
+    indices. The aggregation composition will have m*n different
     indices. The length of A, B and output is the same.
     """
     output = np.zeros_like(A)
@@ -201,6 +194,7 @@ def get_aggregation_matrices():
     Returns the 12 aggregation matrices in vector format.
     """
     from itertools import product
+
     it_state, it_state_idx = item_state()
     it_store, it_store_idx = item_store()
     it_category, it_category_idx = item_category()
@@ -272,8 +266,10 @@ def unit_sales_aggregation() -> Dict[int, MultipleSeries]:
         aggregations[i] = agg
     # level 6,7,8,9: state.category, state.dept, store.category,store.dept
     from itertools import product
+
     for i, (gr_a, gr_b) in enumerate(
-            product([it_state, it_store], [it_category, it_dept])):
+        product([it_state, it_store], [it_category, it_dept])
+    ):
         i += 6
         grouping = compose_aggregation_matrices(gr_a, gr_b)
         agg = tf_groupby(all_sales, grouping)
@@ -291,7 +287,8 @@ def unit_sales_aggregation() -> Dict[int, MultipleSeries]:
     agg = tf_groupby(all_sales, grouping)
     assert agg.shape == (
         len(np.unique(grouping)),
-        NB_DAYS), f"{agg.shape} == ({len(np.unique(grouping))}, {NB_DAYS})"
+        NB_DAYS,
+    ), f"{agg.shape} == ({len(np.unique(grouping))}, {NB_DAYS})"
     aggregations[11] = agg
 
     # level 12
@@ -299,3 +296,25 @@ def unit_sales_aggregation() -> Dict[int, MultipleSeries]:
     aggregations[12] = all_sales
 
     return aggregations
+
+
+@memory.cache
+def reduced_calendar():
+    c = pd.read_csv(
+        CALENDAR,
+        usecols=["d", "wday", "month", "year", "snap_CA", "snap_TX", "snap_WI"],
+    )
+    return c
+
+
+@memory.cache
+def events_calendar():
+    calendar_df = pd.read_csv(
+        CALENDAR,
+        usecols=["event_name_1", "event_name_2", "event_type_1", "event_type_2"],
+    )
+    ev1_df = pd.pivot(calendar_df, columns="event_name_1", values="event_type_1")
+    ev2_df = pd.pivot(calendar_df, columns="event_name_2", values="event_type_2")
+    ev1_df = ev1_df.fillna(ev2_df)
+    bool_events_df = ev1_df.notna()
+    return bool_events_df.values, ev1_df.values
